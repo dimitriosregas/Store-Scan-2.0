@@ -3,45 +3,118 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Store-Scan</title>
-  <script src="https://cdn.jsdelivr.net/npm/zxing-js/library@0.18.6/umd/index.min.js"></script>
+  <title>Store Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f4f4f9;
-    }
-    h1 {
-      text-align: center;
-    }
-    #video {
-      width: 100%;
-      max-width: 500px;
-      height: auto;
-      display: block;
-      margin: 0 auto;
-      border: 2px solid #ccc;
-    }
-    #result {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 1.2em;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; max-width: 600px; margin: auto; }
+    h1 { text-align: center; }
+    #video { width: 100%; max-height: 300px; border: 2px solid #333; border-radius: 8px; background: #000; }
+    .btn { display: inline-block; padding: 10px 15px; margin: 5px 0; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-danger { background: #dc3545; }
+    .section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
   </style>
 </head>
 <body>
-  <h1>Store-Scan</h1>
-  <video id="video"></video>
-  <div id="result">Scan a barcode to see details.</div>
+  <h1>Store Scanner</h1>
+  
+  <div>
+    <video id="video"></video>
+    <div style="text-align: center;">
+      <button class="btn" id="startBtn">Start Scanner</button>
+      <button class="btn btn-danger" id="stopBtn">Stop Scanner</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Latest Scan</h3>
+    <p id="scanResult">No barcode scanned yet.</p>
+  </div>
+
+  <div class="section">
+    <h3>Add / Update Item in Local Storage</h3>
+    <input type="text" id="itemBarcode" placeholder="Barcode" style="padding: 8px; width: 60%;">
+    <input type="text" id="itemName" placeholder="Item Name" style="padding: 8px; width: 60%; margin-top: 5px;">
+    <input type="number" id="itemPrice" placeholder="Price" step="0.01" style="padding: 8px; width: 60%; margin-top: 5px;">
+    <br>
+    <button class="btn" id="saveItemBtn">Save Item</button>
+  </div>
+
+  <div class="section">
+    <h3>Local Inventory (<span id="itemCount">0</span>)</h3>
+    <ul id="inventoryList"></ul>
+    <button class="btn btn-danger" id="clearInventoryBtn">Clear Inventory</button>
+  </div>
 
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
-    codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-      if (result) {
-        document.getElementById('result').innerText = result.text;
+    let selectedDeviceId;
+
+    const scanResultEl = document.getElementById('scanResult');
+    const inventoryListEl = document.getElementById('inventoryList');
+    const itemCountEl = document.getElementById('itemCount');
+
+    function loadInventory() {
+      const inventory = JSON.parse(localStorage.getItem('store_inventory') || '{}');
+      inventoryListEl.innerHTML = '';
+      const keys = Object.keys(inventory);
+      itemCountEl.innerText = keys.length;
+      keys.forEach(barcode => {
+        const item = inventory[barcode];
+        const li = document.createElement('li');
+        li.innerHTML = `<span><strong>${barcode}</strong>: ${item.name || 'Unnamed'}</span> <span>$${item.price || '0.00'}</span>`;
+        inventoryListEl.appendChild(li);
+      });
+    }
+
+    function saveItem(barcode, name, price) {
+      if (!barcode) return;
+      const inventory = JSON.parse(localStorage.getItem('store_inventory') || '{}');
+      inventory[barcode] = { name: name, price: price, timestamp: new Date().toISOString() };
+      localStorage.setItem('store_inventory', JSON.stringify(inventory));
+      loadInventory();
+    }
+
+    document.getElementById('saveItemBtn').addEventListener('click', () => {
+      const barcode = document.getElementById('itemBarcode').value.trim();
+      const name = document.getElementById('itemName').value.trim();
+      const price = document.getElementById('itemPrice').value.trim();
+      saveItem(barcode, name, price);
+      document.getElementById('itemBarcode').value = '';
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemPrice').value = '';
+    });
+
+    document.getElementById('clearInventoryBtn').addEventListener('click', () => {
+      if (confirm('Clear local inventory?')) {
+        localStorage.removeItem('store_inventory');
+        loadInventory();
       }
     });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+        if (result) {
+          const barcode = result.text;
+          const inventory = JSON.parse(localStorage.getItem('store_inventory') || '{}');
+          const item = inventory[barcode];
+          if (item) {
+            scanResultEl.innerHTML = `<strong>Found:</strong> ${item.name} ($${item.price}) [${barcode}]`;
+          } else {
+            scanResultEl.innerHTML = `<strong>Scanned:</strong> ${barcode} (Not in local inventory)`;
+          }
+          document.getElementById('itemBarcode').value = barcode;
+        }
+      });
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      codeReader.reset();
+      scanResultEl.innerText = 'Scanner stopped.';
+    });
+
+    loadInventory();
   </script>
 </body>
 </html>
