@@ -131,8 +131,101 @@
             .tag-peg .shelf-tag-title { font-size: 12px; }
             .tag-peg .shelf-tag-price { font-size: 26px; }
             .tag-peg .shelf-tag-barcode { height: 35px; }
+        } 
+    </style>
+</head>
+<body>
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(type = 'tap') {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            if (type === 'tap') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'success') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            }
         }
-      <!-- ARCHIVES MODAL -->
+    </script>
+    
+    <div class="header">
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%23fff' fill-opacity="0.2"/><path d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/><rect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/></svg>
+        <h2>Store Scan</h2>
+    </div>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('scanner')">Scanner</div>
+        <div class="tab" onclick="switchTab('inventory')">Inventory & XML</div>
+    </div>
+    
+    <div class="custom-alert" id="customAlert">Message</div>
+    
+    <div class="content">
+        <!-- SCANNER VIEW -->
+        <div id="view-scanner" class="view active">
+            <div class="input-display" id="upc-display">Ready</div>
+            <div class="action-row">
+                <button class="btn btn-green" onclick="openCamera(false)">📷 Scan Code</button>
+                <button class="btn btn-blue" onclick="openCamera(true)">📦 Speed Scan</button>
+            </div>
+            <div class="numpad">
+                <button class="num-btn" onclick="typeNum('1')">1</button>
+                <button class="num-btn" onclick="typeNum('2')">2</button>
+                <button class="num-btn" onclick="typeNum('3')">3</button>
+                <button class="num-btn" onclick="typeNum('4')">4</button>
+                <button class="num-btn" onclick="typeNum('5')">5</button>
+                <button class="num-btn" onclick="typeNum('6')">6</button>
+                <button class="num-btn" onclick="typeNum('7')">7</button>
+                <button class="num-btn" onclick="typeNum('8')">8</button>
+                <button class="num-btn" onclick="typeNum('9')">9</button>
+                <button class="num-btn clear" onclick="typeNum('C')">C</button>
+                <button class="num-btn" onclick="typeNum('0')">0</button>
+                <button class="num-btn clear" onclick="typeNum('DEL')">⌫</button>
+                <button class="num-btn search" onclick="searchUPC()">🔍 Search Item</button>
+            </div>
+            <div id="result-container"></div>
+        </div>
+
+        <!-- INVENTORY VIEW -->
+        <div id="view-inventory" class="view">
+            <div class="db-stats" id="db-stats">
+                Total Items in Database: <span id="db-count">0</span>
+            </div>
+            <div id="inventory-tools">
+                <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)">
+                <button class="btn btn-blue btn-full" onclick="document.getElementById('xml-upload').click()">📂 Import Verifone XML</button>
+                <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
+                <button class="btn btn-full" style="background:#6b7280" onclick="window.print()">🖨️ Print / PDF Changes</button>
+                <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
+            </div>
+            <div style="margin: 20px 0 10px 0; border-top: 1px solid #4b5563; padding-top: 15px;">
+                <h3 style="margin-bottom: 10px;">Modified / Scanned Items</h3>
+                <div class="action-row" style="grid-template-columns: 1fr 1fr;">
+                    <button class="btn btn-blue" style="font-size: 14px; padding: 10px;" onclick="archiveCurrentList()">📦 Archive & Start New</button>
+                    <button class="btn" style="background:#4b5563; font-size: 14px; padding: 10px;" onclick="openArchiveModal()">🕒 Past Archives</button>
+                </div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table id="inventory-table">
+                    <thead><tr><th>UPC</th><th>Description</th><th>Qty</th><th>Price</th></tr></thead>
+                    <tbody id="inventory-list">
+                        <tr><td colspan="4" style="text-align:center">No changes made yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARCHIVES MODAL -->
     <div class="modal" id="archive-modal">
         <div class="modal-content" style="max-width: 500px;">
             <h3 style="margin-bottom: 15px; color: var(--success);" id="archive-modal-title">Past Archives</h3>
@@ -211,7 +304,7 @@
             <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
         </div>
     </div>
-     <script>
+    <script>
         let inventory = {};
         let modifiedItems = {};
         let archives = [];
@@ -446,7 +539,6 @@
                 container.innerHTML = html;
             }
         }
-
         function openPrintModal(upc) {
             currentPrintUPC = upc;
             let item = inventory[upc];
@@ -732,6 +824,4 @@
         }
     </script>
 </body>
-</html> 
-    </style>
-</head>
+</html>
