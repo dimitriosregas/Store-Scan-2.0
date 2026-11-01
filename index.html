@@ -90,7 +90,6 @@
         .db-stats span { color: var(--success); font-weight: bold; font-size: 18px; }
         .archive-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         
-        /* Print Area Hidden from standard view */
         #print-label-area { display: none; }
 
         @media print {
@@ -108,7 +107,6 @@
             body.printing-modal table th { background: #f3f4f6; color: black; }
             body.printing-modal table td { border-bottom: 1px solid #ccc; }
             
-            /* Shelf Tag Label Printing Overrides */
             body.printing-label .content { display: none !important; }
             body.printing-label #print-label-area { 
                 display: flex !important; 
@@ -123,18 +121,18 @@
             .shelf-tag-barcode { max-width: 100%; height: 40px; }
             
             .tag-standard { width: 2.5in; height: 1.25in; }
-            
             .tag-large { width: 3in; height: 2in; }
             .tag-large .shelf-tag-title { font-size: 18px; margin-top: 5px; }
             .tag-large .shelf-tag-price { font-size: 48px; }
             .tag-large .shelf-tag-barcode { height: 60px; margin-bottom: 5px; }
-            
             .tag-peg { width: 2in; height: 1.25in; }
             .tag-peg .shelf-tag-title { font-size: 12px; }
             .tag-peg .shelf-tag-price { font-size: 26px; }
             .tag-peg .shelf-tag-barcode { height: 35px; }
         }
-       <body>
+    </style>
+</head>
+<body>
     <script>
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playBeep(type = 'tap') {
@@ -304,6 +302,7 @@
             <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
         </div>
     </div>
+
     <script>
         let inventory = {};
         let modifiedItems = {};
@@ -315,7 +314,7 @@
         let isSpeedScan = false;
         let lockedUPC = null;
         let lockedQty = 0;
-        let currentPrintUPC = null; // Tracks the item being printed
+        let currentPrintUPC = null;
 
         window.onload = () => {
             try {
@@ -335,7 +334,6 @@
                 }
             } catch(e) {}
 
-            // Fallback for iOS/Safari where BarcodeDetector is not supported
             if ('BarcodeDetector' in window) {
                 barcodeDetector = new BarcodeDetector({ formats: ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
             } else if (typeof ZXing !== 'undefined') {
@@ -458,7 +456,6 @@
         function stripZeros(upc) { return upc.replace(/^0+/, ''); }
         function formatUPC14(upc) { return stripZeros(upc).padStart(14, '0'); }
 
-        // RETURNS ALL MATCHING ITEMS IN AN ARRAY (8-DIGIT PREFIX LOGIC INCLUDED)
         function fuzzyMatchUPCAll(scannedCode) {
             let strippedScan = stripZeros(scannedCode);
             let matches = new Set();
@@ -515,7 +512,6 @@
                     let modQty = modifiedItems[upc] ? modifiedItems[upc].qty : (item.qty || 0);
                     let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${parseFloat(item.oldPrice).toFixed(2)}</span> $${parseFloat(item.price).toFixed(2)}` : `$${parseFloat(item.price).toFixed(2)}`;
                     
-                    // Added "Print Tag" Button here!
                     html += `
                     <div class="result-card">
                         <div class="result-title">${item.desc}</div>
@@ -535,7 +531,6 @@
             }
         }
 
-        // --- NEW PRINT TAG LOGIC ---
         function openPrintModal(upc) {
             currentPrintUPC = upc;
             let item = inventory[upc];
@@ -551,11 +546,9 @@
 
             let tagSize = document.getElementById('print-label-size').value;
             
-            // Set text data in the hidden print area
             document.getElementById('tag-print-desc').innerText = item.desc;
             document.getElementById('tag-print-price').innerText = "$" + parseFloat(item.price).toFixed(2);
             
-            // Generate Real Scannable Barcode SVG
             try {
                 JsBarcode("#tag-print-barcode", stripZeros(upc), {
                     format: "UPC", 
@@ -563,7 +556,6 @@
                     margin: 0,
                     height: 40,
                     valid: function(valid) {
-                        // Fallback to CODE128 if UPC format fails due to length/checksum
                         if(!valid) { JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 }); }
                     }
                 });
@@ -571,20 +563,16 @@
                 JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 });
             }
 
-            // Set the correct physical size class for the tag
             let tagElem = document.getElementById('active-print-tag');
             tagElem.className = "shelf-tag " + tagSize;
 
             closeModal('print-label-modal');
             
-            // Trigger the browser print specifically for the label
             document.body.classList.add('printing-label');
             window.print();
             
-            // Remove print class after a short delay so you can return to the app
             setTimeout(() => { document.body.classList.remove('printing-label'); }, 1500);
         }
-        // ---------------------------
 
         function openEditModal(upc) {
             let item = inventory[upc] || modifiedItems[upc];
@@ -814,6 +802,4 @@
         }
     </script>
 </body>
-</html>    
-    </style>
-</head>
+</html>
