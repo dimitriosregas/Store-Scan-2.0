@@ -202,7 +202,8 @@
             </div>
             <div id="inventory-tools">
                 <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)">
-                <button class="btn btn-blue btn-full" onclick="document.getElementById('xml-upload').click()">📂 Import Verifone XML</button>
+        <button class="btn btn-blue btn-full" id="select-folder-btn" onclick="setupFolderSync()">📂 Select PLU Folder...</button>
+<button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
                 <button class="btn btn-full" style="background:#6b7280" onclick="window.print()">🖨️ Print / PDF Changes</button>
                 <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
