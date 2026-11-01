@@ -15,8 +15,9 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
 
-    <!-- ZXing Camera Fallback for iOS/Safari -->
+    <!-- ZXing Camera Fallback & JsBarcode for Tag Printing -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
 
     <style>
         :root {
@@ -77,7 +78,7 @@
         .modal-content { background: var(--dark); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; border: 1px solid #374151; max-height: 90vh; overflow-y: auto; }
         .form-group { margin-bottom: 10px; }
         .form-group label { display: block; margin-bottom: 5px; color: var(--gray); font-size: 14px; }
-        .form-group input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #4b5563; background: #111827; color: white; font-size: 16px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #4b5563; background: #111827; color: white; font-size: 16px; }
         
         .custom-alert { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #374151; border-left: 5px solid var(--primary); padding: 15px 20px; border-radius: 8px; font-weight: bold; z-index: 300; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); text-align: center; width: 80%; max-width: 400px; }
         
@@ -89,23 +90,51 @@
         .db-stats span { color: var(--success); font-weight: bold; font-size: 18px; }
         .archive-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         
+        /* Print Area Hidden from standard view */
+        #print-label-area { display: none; }
+
         @media print {
             body { background: white; color: black; height: auto; display: block; overflow: visible; }
-            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display { display: none !important; }
+            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal { display: none !important; }
             .content, .view { display: block !important; padding: 0; overflow: visible; }
             #view-inventory { display: block !important; }
             .result-card, .archive-card { background: white; border: 1px solid #ccc; break-inside: avoid; color: black; }
-            .result-title { color: black; }
-            .price-tag { color: black; }
+            .result-title, .price-tag { color: black; }
             .old-price { color: #666; text-decoration: line-through; margin-right: 10px; }
-            #inventory-tools, .action-row { display: none !important; }
+            #inventory-tools { display: none !important; }
             body.printing-modal #view-inventory { display: none !important; }
             body.printing-modal .modal { position: static; display: block !important; background: white; padding: 0; }
             body.printing-modal .modal-content { border: none; width: 100%; max-width: 100%; color: black; background: white; }
             body.printing-modal table th { background: #f3f4f6; color: black; }
             body.printing-modal table td { border-bottom: 1px solid #ccc; }
+            
+            /* Shelf Tag Label Printing Overrides */
+            body.printing-label .content { display: none !important; }
+            body.printing-label #print-label-area { 
+                display: flex !important; 
+                position: absolute; left: 0; top: 0; 
+                margin: 0; padding: 0; background: white; 
+                width: 100%; height: 100%; 
+                justify-content: flex-start; align-items: flex-start; 
+            }
+            .shelf-tag { border: 1px dashed #999; background: white; color: black; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; box-sizing: border-box; page-break-inside: avoid; overflow: hidden; }
+            .shelf-tag-title { font-size: 14px; font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; width: 100%; text-align: center; margin: 0; }
+            .shelf-tag-price { font-size: 32px; font-weight: bold; margin: 2px 0; }
+            .shelf-tag-barcode { max-width: 100%; height: 40px; }
+            
+            .tag-standard { width: 2.5in; height: 1.25in; }
+            
+            .tag-large { width: 3in; height: 2in; }
+            .tag-large .shelf-tag-title { font-size: 18px; margin-top: 5px; }
+            .tag-large .shelf-tag-price { font-size: 48px; }
+            .tag-large .shelf-tag-barcode { height: 60px; margin-bottom: 5px; }
+            
+            .tag-peg { width: 2in; height: 1.25in; }
+            .tag-peg .shelf-tag-title { font-size: 12px; }
+            .tag-peg .shelf-tag-price { font-size: 26px; }
+            .tag-peg .shelf-tag-barcode { height: 35px; }
         }
-      <body>
+       <body>
     <script>
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playBeep(type = 'tap') {
@@ -243,7 +272,39 @@
             </div>
         </div>
     </div>
-      <script>
+
+    <!-- PRINT LABEL MODAL -->
+    <div class="modal" id="print-label-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px;">Print Shelf Tag</h3>
+            <p id="print-label-desc" style="margin-bottom: 5px; font-weight: bold;"></p>
+            <p id="print-label-upc" style="margin-bottom: 15px; color: var(--gray);"></p>
+            
+            <div class="form-group">
+                <label>Select Tag Size</label>
+                <select id="print-label-size">
+                    <option value="tag-standard">Standard Shelf Tag (2.5" x 1.25")</option>
+                    <option value="tag-large">Large Shelf Tag (3" x 2")</option>
+                    <option value="tag-peg">Peg Hook Tag (2" x 1.25")</option>
+                </select>
+            </div>
+            
+            <div class="action-row" style="margin-top: 15px;">
+                <button class="btn btn-green" onclick="executePrintLabel()">🖨️ Print Tag</button>
+                <button class="btn" style="background:#6b7280" onclick="closeModal('print-label-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN PRINT AREA -->
+    <div id="print-label-area">
+        <div class="shelf-tag" id="active-print-tag">
+            <div class="shelf-tag-title" id="tag-print-desc">Item Name</div>
+            <div class="shelf-tag-price" id="tag-print-price">$0.00</div>
+            <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
+        </div>
+    </div>
+    <script>
         let inventory = {};
         let modifiedItems = {};
         let archives = [];
@@ -254,6 +315,7 @@
         let isSpeedScan = false;
         let lockedUPC = null;
         let lockedQty = 0;
+        let currentPrintUPC = null; // Tracks the item being printed
 
         window.onload = () => {
             try {
@@ -365,7 +427,7 @@
             
             document.getElementById('archive-modal-actions').innerHTML = `
                 <button class="btn btn-blue" onclick="openArchiveModal()">⬅️ Back to List</button>
-                <button class="btn" style="background:#6b7280;" onclick="window.print()">🖨️ Print</button>
+                <button class="btn" style="background:#6b7280;" onclick="window.print()">🖨️ Print List</button>
                 <button class="btn btn-red" style="grid-column: span 2;" onclick="deleteArchive(${index})">🗑️ Delete Archive</button>
             `;
             document.body.classList.add('printing-modal');
@@ -396,22 +458,14 @@
         function stripZeros(upc) { return upc.replace(/^0+/, ''); }
         function formatUPC14(upc) { return stripZeros(upc).padStart(14, '0'); }
 
-        // RETURNS ALL MATCHING ITEMS IN AN ARRAY
+        // RETURNS ALL MATCHING ITEMS IN AN ARRAY (8-DIGIT PREFIX LOGIC INCLUDED)
         function fuzzyMatchUPCAll(scannedCode) {
             let strippedScan = stripZeros(scannedCode);
             let matches = new Set();
             
-            // 1. Exact match
-            Object.keys(inventory).forEach(k => {
-                if (stripZeros(k) === strippedScan) matches.add(k);
-            });
+            Object.keys(inventory).forEach(k => { if (stripZeros(k) === strippedScan) matches.add(k); });
+            Object.keys(inventory).forEach(k => { if (stripZeros(k).startsWith(strippedScan)) matches.add(k); });
 
-            // 2. Prefix matching (Starts With exactly what they typed)
-            Object.keys(inventory).forEach(k => {
-                if (stripZeros(k).startsWith(strippedScan)) matches.add(k);
-            });
-
-            // 3. 8-digit specialized prefix (if they scanned an 8-digit code, check first 7)
             if(strippedScan.length === 8) {
                 let prefix7 = strippedScan.substring(0, 7);
                 Object.keys(inventory).forEach(k => {
@@ -419,7 +473,6 @@
                 });
             }
 
-            // 4. Drop last digit fuzzy fallback 
             if(strippedScan.length >= 7) {
                 let coreScan = strippedScan.substring(0, strippedScan.length - 1);
                 Object.keys(inventory).forEach(k => {
@@ -462,6 +515,7 @@
                     let modQty = modifiedItems[upc] ? modifiedItems[upc].qty : (item.qty || 0);
                     let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${parseFloat(item.oldPrice).toFixed(2)}</span> $${parseFloat(item.price).toFixed(2)}` : `$${parseFloat(item.price).toFixed(2)}`;
                     
+                    // Added "Print Tag" Button here!
                     html += `
                     <div class="result-card">
                         <div class="result-title">${item.desc}</div>
@@ -469,15 +523,68 @@
                         <div class="result-row"><span>Dept:</span> <span>${item.dept || "1"}</span></div>
                         <div class="result-row"><span>Qty on Hand:</span> <span>${modQty}</span></div>
                         <div class="result-row" style="margin-top:10px;"><span>Price:</span> <span class="price-tag">${priceHtml}</span></div>
+                        
                         <div class="action-row" style="margin-top:15px;">
                             <button class="btn btn-blue" onclick="openEditModal('${upc}')">✏️ Edit</button>
-                            <button class="btn btn-red" onclick="deleteItem('${upc}')">🗑️ Delete</button>
+                            <button class="btn btn-green" onclick="openPrintModal('${upc}')">🏷️ Print Tag</button>
                         </div>
+                        <button class="btn btn-red btn-full" style="margin-top:10px;" onclick="deleteItem('${upc}')">🗑️ Delete</button>
                     </div>`;
                 });
                 container.innerHTML = html;
             }
         }
+
+        // --- NEW PRINT TAG LOGIC ---
+        function openPrintModal(upc) {
+            currentPrintUPC = upc;
+            let item = inventory[upc];
+            document.getElementById('print-label-desc').innerText = item.desc;
+            document.getElementById('print-label-upc').innerText = "UPC: " + upc;
+            document.getElementById('print-label-modal').style.display = 'flex';
+        }
+
+        function executePrintLabel() {
+            let upc = currentPrintUPC;
+            let item = inventory[upc];
+            if (!item) return;
+
+            let tagSize = document.getElementById('print-label-size').value;
+            
+            // Set text data in the hidden print area
+            document.getElementById('tag-print-desc').innerText = item.desc;
+            document.getElementById('tag-print-price').innerText = "$" + parseFloat(item.price).toFixed(2);
+            
+            // Generate Real Scannable Barcode SVG
+            try {
+                JsBarcode("#tag-print-barcode", stripZeros(upc), {
+                    format: "UPC", 
+                    displayValue: true,
+                    margin: 0,
+                    height: 40,
+                    valid: function(valid) {
+                        // Fallback to CODE128 if UPC format fails due to length/checksum
+                        if(!valid) { JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 }); }
+                    }
+                });
+            } catch(e) {
+                JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 });
+            }
+
+            // Set the correct physical size class for the tag
+            let tagElem = document.getElementById('active-print-tag');
+            tagElem.className = "shelf-tag " + tagSize;
+
+            closeModal('print-label-modal');
+            
+            // Trigger the browser print specifically for the label
+            document.body.classList.add('printing-label');
+            window.print();
+            
+            // Remove print class after a short delay so you can return to the app
+            setTimeout(() => { document.body.classList.remove('printing-label'); }, 1500);
+        }
+        // ---------------------------
 
         function openEditModal(upc) {
             let item = inventory[upc] || modifiedItems[upc];
@@ -707,6 +814,6 @@
         }
     </script>
 </body>
-</html>
+</html>    
     </style>
 </head>
