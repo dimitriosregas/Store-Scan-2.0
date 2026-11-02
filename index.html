@@ -131,7 +131,7 @@
             .tag-peg .shelf-tag-title { font-size: 12px; }
             .tag-peg .shelf-tag-price { font-size: 26px; }
             .tag-peg .shelf-tag-barcode { height: 35px; }
-        } 
+        }
     </style>
 </head>
 <body>
@@ -201,9 +201,8 @@
                 Total Items in Database: <span id="db-count">0</span>
             </div>
             <div id="inventory-tools">
-                <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)">
-        <button class="btn btn-blue btn-full" id="select-folder-btn" onclick="setupFolderSync()">📂 Select PLU Folder...</button>
-<button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
+                <button class="btn btn-blue btn-full" id="select-folder-btn" onclick="setupFolderSync()">📂 Select PLU Folder...</button>
+                <button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
                 <button class="btn btn-full" style="background:#6b7280" onclick="window.print()">🖨️ Print / PDF Changes</button>
                 <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
@@ -305,6 +304,9 @@
             <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
         </div>
     </div>
+    
+    <!-- Fallback file input for iPhones -->
+    <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
     <script>
         let inventory = {};
         let modifiedItems = {};
@@ -317,6 +319,7 @@
         let lockedUPC = null;
         let lockedQty = 0;
         let currentPrintUPC = null;
+        let pluDirectoryHandle = null;
 
         window.onload = () => {
             try {
@@ -342,7 +345,7 @@
                 zxingReader = new ZXing.BrowserMultiFormatReader();
             }
 
-            // Upgraded input logic: Allow smartphone folder selection for XML batches
+            // Upgraded input logic: Allow smartphone folder selection for XML batches fallback
             const xmlInput = document.getElementById('xml-upload');
             if(xmlInput) {
                 xmlInput.setAttribute('multiple', 'true');
@@ -350,6 +353,19 @@
                 xmlInput.setAttribute('directory', 'true');
             }
         };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    let db = await openDB();
+                    pluDirectoryHandle = await getFromDB(db, 'pluFolderHandle');
+                    if (pluDirectoryHandle) {
+                        document.getElementById('sync-plu-btn').style.display = 'block';
+                        document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
+                    }
+                } catch(e) {}
+            }
+        });
 
         function showAlert(msg, color = 'var(--primary)') {
             const al = document.getElementById('customAlert');
@@ -762,52 +778,100 @@
             });
         }
 
+        // --- Folder Sync Logic ---
+        
+        // 1. Initial Folder Setup
+        async function setupFolderSync() {
+            if (!('showDirectoryPicker' in window)) {
+                document.getElementById('xml-upload').click();
+                return;
+            }
+            try {
+                pluDirectoryHandle = await window.showDirectoryPicker();
+                let db = await openDB();
+                await saveToDB(db, 'pluFolderHandle', pluDirectoryHandle);
+                
+                document.getElementById('sync-plu-btn').style.display = 'block';
+                document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
+                await syncPLUs(); 
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        // 2. One-Click Sync Button
+        async function syncPLUs() {
+            if (!pluDirectoryHandle) return;
+            try {
+                if (await pluDirectoryHandle.queryPermission({ mode: 'read' }) !== 'granted') {
+                    if (await pluDirectoryHandle.requestPermission({ mode: 'read' }) !== 'granted') {
+                        showAlert("Permission required to sync folder.", "var(--danger)");
+                        return;
+                    }
+                }
+                
+                showAlert("Syncing PLUs... Please wait.", "var(--primary)");
+                let totalAdded = 0;
+                
+                for await (const entry of pluDirectoryHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.xml')) {
+                        const file = await entry.getFile();
+                        totalAdded += await parseXMLFile(file);
+                    }
+                }
+                
+                if (totalAdded === 0) { 
+                    showAlert("No valid PLUs found in folder.", "var(--danger)"); 
+                } else {
+                    persistData(); 
+                    showAlert(`Successfully synced ${totalAdded} items!`, "var(--success)");
+                }
+            } catch(e) {
+                showAlert("Error syncing. Try re-selecting the folder.", "var(--danger)");
+            }
+        }
+
+        // 3. Fallback for iPhones (Standard File Upload)
         async function handleXMLUpload(event) {
             const files = event.target.files; 
             if (!files || files.length === 0) return;
-            
-            showAlert(`Scanning ${files.length} files... Please wait.`, "var(--primary)");
-            
+            showAlert(`Scanning files... Please wait.`, "var(--primary)");
             let totalAdded = 0;
-            
             for (let i = 0; i < files.length; i++) {
                 let file = files[i];
-                // Only process files that are XML
-                if (!file.name.toLowerCase().endsWith('.xml')) continue;
-                
-                try {
-                    let text = await file.text();
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(text, "text/xml");
-                    const pluNodes = xmlDoc.getElementsByTagName('*');
-                    
-                    for (let j = 0; j < pluNodes.length; j++) {
-                        let node = pluNodes[j];
-                        if (node.nodeName.includes("PLU") && node.nodeName !== "domain:PLUs") {
-                            let upcNode = node.getElementsByTagName('upc')[0];
-                            if(upcNode) {
-                                let rawUpc = upcNode.textContent;
-                                let upc = formatUPC14(rawUpc);
-                                let descNode = node.getElementsByTagName('description')[0];
-                                let priceNode = node.getElementsByTagName('price')[0];
-                                let deptNode = node.getElementsByTagName('department')[0];
-                                let modNode = node.getElementsByTagName('upcModifier')[0];
-                                inventory[upc] = { desc: descNode ? descNode.textContent : "Unknown", price: priceNode ? parseFloat(priceNode.textContent).toFixed(2) : "0.00", dept: deptNode ? deptNode.textContent : "1", mod: modNode ? modNode.textContent : "000", qty: 0 };
-                                totalAdded++;
-                            }
-                        }
-                    }
-                } catch(err) {
-                    console.error("Error reading file", file.name);
+                if (file.name.toLowerCase().endsWith('.xml')) {
+                    totalAdded += await parseXMLFile(file);
                 }
             }
-            
-            if (totalAdded === 0) { 
-                showAlert("Error: No valid PLUs found in selected files.", "var(--danger)"); 
-            } else {
-                persistData(); 
-                showAlert(`Successfully imported ${totalAdded} items from folder!`, "var(--success)");
-            }
+            if (totalAdded === 0) { showAlert("No valid PLUs found.", "var(--danger)"); } 
+            else { persistData(); showAlert(`Synced ${totalAdded} items!`, "var(--success)"); }
+        }
+
+        // Core XML Parser
+        async function parseXMLFile(file) {
+            let added = 0;
+            try {
+                let text = await file.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(text, "text/xml");
+                const pluNodes = xmlDoc.getElementsByTagName('*');
+                for (let j = 0; j < pluNodes.length; j++) {
+                    let node = pluNodes[j];
+                    if (node.nodeName.includes("PLU") && node.nodeName !== "domain:PLUs") {
+                        let upcNode = node.getElementsByTagName('upc')[0];
+                        if(upcNode) {
+                            let upc = formatUPC14(upcNode.textContent);
+                            let descNode = node.getElementsByTagName('description')[0];
+                            let priceNode = node.getElementsByTagName('price')[0];
+                            let deptNode = node.getElementsByTagName('department')[0];
+                            let modNode = node.getElementsByTagName('upcModifier')[0];
+                            inventory[upc] = { desc: descNode ? descNode.textContent : "Unknown", price: priceNode ? parseFloat(priceNode.textContent).toFixed(2) : "0.00", dept: deptNode ? deptNode.textContent : "1", mod: modNode ? modNode.textContent : "000", qty: 0 };
+                            added++;
+                        }
+                    }
+                }
+            } catch(err) { console.error("Error reading file", file.name); }
+            return added;
         }
 
         function exportXML() {
@@ -822,6 +886,31 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = 'Modified_PLUs.xml'; a.click(); URL.revokeObjectURL(url);
             showAlert("Exported XML successfully.", "var(--success)");
+        }
+
+        // Mini Database to remember the folder across app restarts
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                let req = indexedDB.open('StoreScanDB', 1);
+                req.onupgradeneeded = e => e.target.result.createObjectStore('settings');
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e);
+            });
+        }
+        function getFromDB(db, key) {
+            return new Promise(resolve => {
+                if(!db.objectStoreNames.contains('settings')) return resolve(null);
+                let req = db.transaction('settings', 'readonly').objectStore('settings').get(key);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+        }
+        function saveToDB(db, key, val) {
+            return new Promise(resolve => {
+                let tx = db.transaction('settings', 'readwrite');
+                tx.objectStore('settings').put(val, key);
+                tx.oncomplete = () => resolve();
+            });
         }
     </script>
 </body>
