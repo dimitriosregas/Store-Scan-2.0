@@ -132,6 +132,57 @@
             .tag-peg .shelf-tag-price { font-size: 26px; }
             .tag-peg .shelf-tag-barcode { height: 35px; }
         }
+        @media print {
+    @page {
+        size: letter portrait;
+        margin: 0.2in;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+        height: auto !important;
+        overflow: visible !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools {
+        display: none !important;
+    }
+    .content, .view {
+        display: block !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    #view-inventory {
+        display: block !important;
+    }
+    /* Force table borders and boxes to print correctly */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 6px !important;
+        color: black !important;
+    }
+    th {
+        background-color: #f3f4f6 !important;
+    }
+    .result-card, .archive-card {
+        background: white !important;
+        border: 1px solid #000 !important;
+        break-inside: avoid !important;
+        color: black !important;
+    }
+    /* Shelf tag boxes override */
+    .shelf-tag {
+        border: 2px dashed #000 !important;
+        background: white !important;
+        color: black !important;
+        page-break-inside: avoid !important;
+    }
+}
     </style>
 </head>
 <body>
