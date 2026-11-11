@@ -15,10 +15,12 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
 
-    <!-- ZXing Camera Fallback, JsBarcode for Tag Printing, & jsPDF for 80mm/Legal Generation -->
+    <!-- ZXing, JsBarcode, jsPDF, Tesseract.js (OCR), & QRCode.js -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
     <style>
         :root {
@@ -26,6 +28,7 @@
             --primary-dark: #3730a3;
             --success: #10b981;
             --danger: #ef4444;
+            --warning: #f59e0b;
             --dark: #1f2937;
             --light: #f3f4f6;
             --gray: #9ca3af;
@@ -43,7 +46,7 @@
         
         .input-display { background: #111827; border: 2px solid #374151; border-radius: 12px; font-size: 28px; padding: 20px; text-align: center; letter-spacing: 2px; margin-bottom: 15px; min-height: 75px; display: flex; align-items: center; justify-content: center; }
         .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; flex: 1; }
-        .num-btn { background: #374151; border: none; border-radius: 12px; color: white; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+        .num-btn { background: #374151; border: none; border-radius: 12px; color: white; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: background 0.1s; cursor: pointer; }
         .num-btn:active { background: #6b7280; }
         .num-btn.clear { background: var(--danger); }
         .num-btn.search { background: var(--primary); grid-column: span 3; padding: 15px; }
@@ -52,12 +55,13 @@
         .btn-green { background: var(--success); }
         .btn-blue { background: var(--primary); }
         .btn-red { background: var(--danger); }
+        .btn-yellow { background: var(--warning); color: #111827; }
         .btn-full { width: 100%; margin-bottom: 10px; }
         
         .result-card { background: #374151; border-radius: 12px; padding: 15px; margin-top: 15px; }
         .result-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #60a5fa; }
-        .result-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 18px; }
-        .price-tag { font-size: 24px; font-weight: bold; color: var(--success); }
+        .result-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 16px; }
+        .price-tag { font-size: 22px; font-weight: bold; color: var(--success); }
         
         #scanner-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 100; display: none; flex-direction: column; }
         #camera-feed { width: 100%; height: 100%; object-fit: cover; }
@@ -76,24 +80,26 @@
         .speed-success { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 15px 30px; border-radius: 12px; font-size: 20px; font-weight: bold; display: none; z-index: 120; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         
         .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; display: none; justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { background: var(--dark); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; border: 1px solid #374151; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: var(--dark); padding: 20px; border-radius: 12px; width: 100%; max-width: 440px; border: 1px solid #374151; max-height: 90vh; overflow-y: auto; }
         .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; margin-bottom: 5px; color: var(--gray); font-size: 14px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #4b5563; background: #111827; color: white; font-size: 16px; }
+        .form-group label { display: block; margin-bottom: 4px; color: var(--gray); font-size: 13px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #4b5563; background: #111827; color: white; font-size: 15px; }
         
         .custom-alert { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #374151; border-left: 5px solid var(--primary); padding: 15px 20px; border-radius: 8px; font-weight: bold; z-index: 300; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); text-align: center; width: 80%; max-width: 400px; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #374151; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #374151; }
         th { background: #111827; color: var(--gray); }
-        .old-price { color: var(--danger); text-decoration: line-through; margin-right: 5px; font-size: 12px;}
+        .old-price { color: var(--danger); text-decoration: line-through; margin-right: 5px; font-size: 11px; }
         .db-stats { text-align: center; padding: 10px; background: #111827; border-radius: 8px; margin-bottom: 15px; color: #9ca3af; font-size: 14px; }
         .db-stats span { color: var(--success); font-weight: bold; font-size: 18px; }
         .archive-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         
+        #signature-canvas { background: white; width: 100%; height: 120px; border-radius: 8px; touch-action: none; cursor: crosshair; }
         #print-label-area { display: none; }
 
         @media print {
+            @page { size: letter portrait; margin: 0.2in; }
             body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools { display: none !important; }
             .content, .view { display: block !important; padding: 0 !important; overflow: visible !important; }
@@ -103,17 +109,20 @@
             th { background-color: #f3f4f6 !important; }
             .result-card, .archive-card { background: white !important; border: 1px solid #000 !important; break-inside: avoid !important; color: black !important; }
             
+            body.printing-modal #view-inventory, body.printing-modal #view-vendor { display: none !important; }
+            body.printing-modal .modal { position: static; display: block !important; background: white; padding: 0; }
+            body.printing-modal .modal-content { border: none; width: 100%; max-width: 100%; color: black; background: white; }
+            
             body.printing-label .content { display: none !important; }
             body.printing-label #print-label-area { 
                 display: flex !important; position: absolute; left: 0; top: 0; 
                 margin: 0; padding: 0; background: white; width: 100%; height: 100%; 
                 justify-content: flex-start; align-items: flex-start; 
             }
-            .shelf-tag { border: 1px dashed #999; background: white; color: black; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; box-sizing: border-box; page-break-inside: avoid; overflow: hidden; }
+            .shelf-tag { border: 2px dashed #000 !important; background: white !important; color: black !important; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; box-sizing: border-box; page-break-inside: avoid !important; overflow: hidden; }
             .shelf-tag-title { font-size: 14px; font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; width: 100%; text-align: center; margin: 0; }
             .shelf-tag-price { font-size: 32px; font-weight: bold; margin: 2px 0; }
             .shelf-tag-barcode { max-width: 100%; height: 40px; }
-            
             .tag-standard { width: 2.5in; height: 1.25in; }
             .tag-large { width: 3in; height: 2in; }
             .tag-large .shelf-tag-title { font-size: 18px; margin-top: 5px; }
@@ -214,36 +223,45 @@
             </div>
             <div style="overflow-x:auto;">
                 <table id="inventory-table">
-                    <thead><tr><th>UPC</th><th>Description</th><th>Qty</th><th>Price</th></tr></thead>
+                    <thead><tr><th>UPC</th><th>Description</th><th>Qty</th><th>Sell Price</th><th>Cost</th></tr></thead>
                     <tbody id="inventory-list">
-                        <tr><td colspan="4" style="text-align:center">No changes made yet.</td></tr>
+                        <tr><td colspan="5" style="text-align:center">No changes made yet.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
-
         <!-- VENDOR CHECK-IN VIEW -->
         <div id="view-vendor" class="view">
             <div class="result-card" style="margin-top:0;">
                 <h3 style="color:#60a5fa; margin-bottom:8px;">🚚 Rapid Vendor Check-In (DSD)</h3>
+                
                 <div class="form-group" style="margin-bottom:10px;">
                     <label>Select Vendor</label>
-                    <select id="vendor-select">
-                        <option value="Frito-Lay">Frito-Lay</option>
-                        <option value="Coca-Cola">Coca-Cola</option>
-                        <option value="PepsiCo">PepsiCo</option>
-                        <option value="Bimbo Bakeries">Bimbo Bakeries</option>
-                        <option value="Core-Mark">Core-Mark</option>
-                        <option value="Other Vendor">Other / Direct Vendor</option>
-                    </select>
+                    <div style="display:flex; gap:8px;">
+                        <select id="vendor-select" style="flex:1;">
+                            <option value="Frito-Lay">Frito-Lay</option>
+                            <option value="Coca-Cola">Coca-Cola</option>
+                            <option value="PepsiCo">PepsiCo</option>
+                            <option value="Bimbo Bakeries">Bimbo Bakeries</option>
+                            <option value="Core-Mark">Core-Mark</option>
+                        </select>
+                        <button class="btn btn-blue" style="padding:10px; font-size:14px;" onclick="openVendorManagerModal()">⚙️ Vendors</button>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom:12px;">
-                    <label>Invoice / Delivery Slip Photo (Optional)</label>
-                    <input type="file" id="invoice-photo-input" accept="image/*" capture="environment" style="background:#111827; padding:8px; border-radius:8px;">
+
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Upload / Take Picture of Invoice (PDF / Photo OCR)</label>
+                    <input type="file" id="vendor-doc-input" accept="image/*,application/pdf" style="background:#111827; padding:8px; border-radius:8px;" onchange="processVendorDocument(event)">
+                    <div id="ocr-status" style="font-size:12px; color:var(--success); margin-top:4px;"></div>
                 </div>
+
                 <div class="action-row">
                     <button class="btn btn-green" onclick="startVendorScan()">📷 Scan Delivery Box</button>
-                    <button class="btn btn-blue" onclick="finishVendorCheckIn()">💾 Complete & Print DSD Report</button>
+                    <button class="btn btn-blue" onclick="openSignatureModal()">✍️ Driver Signature</button>
+                </div>
+                <div class="action-row" style="margin-top:5px;">
+                    <button class="btn btn-yellow" onclick="finishVendorCheckIn()">💾 Complete & Print Report</button>
+                    <button class="btn" style="background:#8b5cf6;" onclick="showReportQRCode()">📱 QR Code Transfer</button>
                 </div>
             </div>
 
@@ -251,20 +269,19 @@
                 <table id="vendor-checkin-table">
                     <thead>
                         <tr>
-                            <th>UPC</th>
-                            <th>Description</th>
+                            <th>UPC / Item</th>
                             <th>Box Qty</th>
-                            <th>Price</th>
+                            <th>Status (Short/Damage/Return)</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="vendor-checkin-list">
-                        <tr><td colspan="5" style="text-align:center; color:var(--gray);">No items checked in yet. Scan your first box.</td></tr>
+                        <tr><td colspan="4" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
-    </div>
+    </div> <!-- END OF CONTENT DIV -->
 
     <!-- ARCHIVES MODAL -->
     <div class="modal" id="archive-modal">
@@ -277,7 +294,48 @@
         </div>
     </div>
 
-    <!-- UNKNOWN VENDOR ITEM MODAL (RED ALERT) -->
+    <!-- VENDOR MANAGER MODAL -->
+    <div class="modal" id="vendor-manager-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:15px; color:#60a5fa;">Manage Vendors</h3>
+            <div class="form-group">
+                <label>Add New Vendor Name</label>
+                <input type="text" id="new-vendor-name" placeholder="e.g. Red Bull Distribution">
+            </div>
+            <button class="btn btn-green btn-full" onclick="addNewVendor()">➕ Add Vendor</button>
+            <div style="margin:15px 0 5px 0; color:var(--gray); font-size:14px;">Existing Vendors:</div>
+            <div id="vendor-list-container" style="max-height:150px; overflow-y:auto; margin-bottom:15px;"></div>
+            <button class="btn btn-full" style="background:#6b7280;" onclick="closeModal('vendor-manager-modal')">Close</button>
+        </div>
+    </div>
+
+    <!-- DRIVER SIGNATURE MODAL -->
+    <div class="modal" id="signature-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:10px; color:#60a5fa;">Delivery Driver Signature</h3>
+            <p style="font-size:13px; color:var(--gray); margin-bottom:10px;">Please have the driver sign below to confirm delivery counts and condition.</p>
+            <div style="border:1px solid #4b5563; border-radius:8px; overflow:hidden; margin-bottom:10px;">
+                <canvas id="signature-canvas"></canvas>
+            </div>
+            <div class="action-row">
+                <button class="btn btn-red" onclick="clearSignature()">Clear</button>
+                <button class="btn btn-green" onclick="saveSignature()">Accept Signature</button>
+            </div>
+            <button class="btn btn-full" style="background:#6b7280; margin-top:5px;" onclick="closeModal('signature-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- QR CODE TRANSFER MODAL -->
+    <div class="modal" id="qrcode-modal">
+        <div class="modal-content" style="text-align:center;">
+            <h3 style="margin-bottom:10px; color:#60a5fa;">DSD Report QR Code</h3>
+            <p style="font-size:13px; color:var(--gray); margin-bottom:15px;">Scan this QR code with another mobile device to instantly transfer or view the check-in summary.</p>
+            <div id="qrcode-container" style="display:inline-block; background:white; padding:15px; border-radius:8px; margin-bottom:15px;"></div>
+            <button class="btn btn-full" style="background:#6b7280;" onclick="closeModal('qrcode-modal')">Close</button>
+        </div>
+    </div>
+
+    <!-- UNKNOWN VENDOR ITEM MODAL (RED ALERT WITH COST/MSRP) -->
     <div class="modal" id="vendor-unknown-modal">
         <div class="modal-content" style="border: 2px solid var(--danger);">
             <h3 style="color: var(--danger); margin-bottom: 5px;">⚠️ Item Not in Database</h3>
@@ -288,7 +346,15 @@
                 <input type="text" id="unknown-item-desc" placeholder="e.g. NEW ENERGY DRINK 16OZ">
             </div>
             <div class="form-group">
-                <label>Retail Price ($)</label>
+                <label>Wholesale Cost ($)</label>
+                <input type="number" step="0.01" id="unknown-item-cost" placeholder="0.00" oninput="autoCalculateRetail()">
+            </div>
+            <div class="form-group">
+                <label>MSRP ($)</label>
+                <input type="number" step="0.01" id="unknown-item-msrp" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Current Selling Price ($)</label>
                 <input type="number" step="0.01" id="unknown-item-retail" placeholder="0.00">
             </div>
             
@@ -320,16 +386,16 @@
         <button class="close-scanner" onclick="closeCamera()">Close Scanner</button>
     </div>
 
-    <!-- EDIT MODAL -->
+    <!-- EDIT / ADD ITEM MODAL WITH COST & MSRP -->
     <div class="modal" id="edit-modal">
         <div class="modal-content">
             <h3 id="modal-title" style="margin-bottom: 15px;">Edit Item</h3>
             <div class="form-group"><label>UPC (14 Digits GTIN)</label><input type="text" id="edit-upc"></div>
             <div class="form-group"><label>Description</label><input type="text" id="edit-desc"></div>
-            <div class="form-group"><label>Price ($)</label><input type="number" step="0.01" id="edit-price"></div>
+            <div class="form-group"><label>Wholesale Cost ($)</label><input type="number" step="0.01" id="edit-cost" placeholder="0.00"></div>
+            <div class="form-group"><label>MSRP ($)</label><input type="number" step="0.01" id="edit-msrp" placeholder="0.00"></div>
+            <div class="form-group"><label>Current Selling Price ($)</label><input type="number" step="0.01" id="edit-price" placeholder="0.00"></div>
             <div class="form-group"><label>Inventory Qty</label><input type="number" id="edit-qty" value="0"></div>
-            <div class="form-group"><label>Department</label><input type="text" id="edit-dept" value="1"></div>
-            <div class="form-group"><label>Modifier</label><input type="text" id="edit-mod" value="000"></div>
             <div class="action-row" style="margin-top: 15px;">
                 <button class="btn btn-green" onclick="saveItem()">Save</button>
                 <button class="btn" style="background:#6b7280" onclick="closeModal('edit-modal')">Cancel</button>
@@ -371,11 +437,11 @@
     
     <!-- Fallback file input for iPhones -->
     <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
-    
-    <script>
+  <script>
         let inventory = {};
         let modifiedItems = {};
         let archives = [];
+        let vendors = ["Frito-Lay", "Coca-Cola", "PepsiCo", "Bimbo Bakeries", "Core-Mark"];
         let currentInput = "";
         let stream = null;
         let barcodeDetector = null;
@@ -390,6 +456,9 @@
         let vendorSessionItems = {};
         let activeVendorUPC = null;
         let isVendorCheckInActive = false;
+        let driverSignatureDataURL = null;
+        let canvasCtx = null;
+        let isDrawing = false;
 
         window.onload = () => {
             try {
@@ -407,6 +476,11 @@
                 if(savedArchives) {
                     archives = JSON.parse(savedArchives);
                 }
+                const savedVendors = localStorage.getItem('commander_vendors');
+                if(savedVendors) {
+                    vendors = JSON.parse(savedVendors);
+                    updateVendorDropdown();
+                }
             } catch(e) {}
 
             if ('BarcodeDetector' in window) {
@@ -421,6 +495,8 @@
                 xmlInput.setAttribute('webkitdirectory', 'true');
                 xmlInput.setAttribute('directory', 'true');
             }
+            
+            initSignaturePad();
         };
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -448,7 +524,7 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('view-' + tab).classList.add('active');
-            event.target.classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
         }
 
         function forceUpdateApp() {
@@ -461,550 +537,129 @@
             setTimeout(() => window.location.reload(true), 1000);
         }
 
-        function archiveCurrentList() {
-            if(Object.keys(modifiedItems).length === 0) {
-                showAlert("List is already empty.", "var(--danger)");
-                return;
-            }
-            if(confirm("Are you sure you want to save this list to Archives and start a fresh list?")) {
-                let currentDateTime = new Date().toLocaleString();
-                archives.push({ date: currentDateTime, items: { ...modifiedItems } });
-                modifiedItems = {};
-                persistData();
-                updateInventoryTable();
-                showAlert("List archived and cleared!", "var(--success)");
-            }
+        function calculateProfitMargin(cost, price) {
+            let c = parseFloat(cost) || 0;
+            let p = parseFloat(price) || 0;
+            if (c <= 0 || p <= 0) return "0.0%";
+            let margin = ((p - c) / p) * 100;
+            return margin.toFixed(1) + "%";
         }
 
-        function openArchiveModal() {
-            document.getElementById('archive-modal-title').innerText = "Past Archives";
-            const container = document.getElementById('archive-list-container');
-            container.innerHTML = "";
-            
-            if(archives.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:var(--gray);'>No past archives found.</p>";
-            } else {
-                let displayArchives = archives.slice().reverse();
-                displayArchives.forEach((arch, index) => {
-                    let originalIndex = archives.length - 1 - index;
-                    let itemCount = Object.keys(arch.items).length;
-                    container.innerHTML += `
-                        <div class="archive-card">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                                <strong>${arch.date}</strong><span style="color:var(--gray);">${itemCount} items</span>
-                            </div>
-                            <button class="btn btn-blue btn-full" style="padding: 10px; font-size:14px;" onclick="viewArchiveDetails(${originalIndex})">📂 View Items</button>
-                        </div>
-                    `;
-                });
-            }
-            
-            document.getElementById('archive-modal-actions').innerHTML = `<button class="btn btn-full" style="background:#6b7280; grid-column: span 2;" onclick="closeArchiveModal()">Close</button>`;
-            document.body.classList.add('modal-open');
-            document.getElementById('archive-modal').style.display = 'flex';
-        }
-
-        function viewArchiveDetails(index) {
-            let arch = archives[index];
-            document.getElementById('archive-modal-title').innerText = `Archive: ${arch.date}`;
-            const container = document.getElementById('archive-list-container');
-            
-            let html = `<table style="width:100%; font-size:12px;"><thead><tr><th>UPC</th><th>Desc</th><th>Qty</th><th>Price</th></tr></thead><tbody>`;
-            for(let upc in arch.items) {
-                let item = arch.items[upc];
-                let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${item.oldPrice}</span>$${item.price}` : `$${item.price}`;
-                html += `<tr><td>${upc}</td><td>${item.desc}</td><td>${item.qty||0}</td><td>${priceHtml}</td></tr>`;
-            }
-            html += `</tbody></table>`;
-            container.innerHTML = html;
-            
-            document.getElementById('archive-modal-actions').innerHTML = `
-                <button class="btn btn-blue" onclick="openArchiveModal()">⬅️ Back to List</button>
-                <button class="btn" style="background:#6b7280;" onclick="printDualFormatPDF()">🖨️ Dual-Format Print</button>
-                <button class="btn btn-red" style="grid-column: span 2;" onclick="deleteArchive(${index})">🗑️ Delete Archive</button>
-            `;
-            document.body.classList.add('printing-modal');
-        }
-
-        function deleteArchive(index) {
-            if(confirm("Are you sure you want to permanently delete this archive?")) {
-                archives.splice(index, 1);
-                persistData();
-                openArchiveModal();
+        function autoCalculateRetail() {
+            let cost = parseFloat(document.getElementById('unknown-item-cost').value) || 0;
+            if (cost > 0) {
+                let suggestedRetail = (cost * 1.35).toFixed(2);
+                document.getElementById('unknown-item-retail').value = suggestedRetail;
+                document.getElementById('unknown-item-msrp').value = suggestedRetail;
             }
         }
 
-        function closeArchiveModal() {
-            document.body.classList.remove('modal-open');
-            document.body.classList.remove('printing-modal');
-            document.getElementById('archive-modal').style.display = 'none';
+        function updateVendorDropdown() {
+            const select = document.getElementById('vendor-select');
+            if(select) select.innerHTML = vendors.map(v => `<option value="${v}">${v}</option>`).join('');
         }
 
-        function typeNum(val) {
-            playBeep('tap');
-            if (val === 'C') { currentInput = ""; } 
-            else if (val === 'DEL') { currentInput = currentInput.slice(0, -1); } 
-            else { currentInput += val; }
-            document.getElementById('upc-display').innerText = currentInput || "Ready";
+        function openVendorManagerModal() {
+            const container = document.getElementById('vendor-list-container');
+            container.innerHTML = vendors.map(v => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#111827; padding:8px; border-radius:6px; margin-bottom:5px;">
+                    <span>${v}</span>
+                    <button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendor('${v}')">X</button>
+                </div>
+            `).join('');
+            document.getElementById('vendor-manager-modal').style.display = 'flex';
         }
 
-        function stripZeros(upc) { return upc.replace(/^0+/, ''); }
-        function formatUPC14(upc) { return stripZeros(upc).padStart(14, '0'); }
-
-        function fuzzyMatchUPCAll(scannedCode) {
-            let strippedScan = stripZeros(scannedCode);
-            let matches = new Set();
-            
-            Object.keys(inventory).forEach(k => { if (stripZeros(k) === strippedScan) matches.add(k); });
-            Object.keys(inventory).forEach(k => { if (stripZeros(k).startsWith(strippedScan)) matches.add(k); });
-
-            if(strippedScan.length === 8) {
-                let prefix7 = strippedScan.substring(0, 7);
-                Object.keys(inventory).forEach(k => {
-                    if (stripZeros(k).startsWith(prefix7)) matches.add(k);
-                });
-            }
-
-            if(strippedScan.length >= 7) {
-                let coreScan = strippedScan.substring(0, strippedScan.length - 1);
-                Object.keys(inventory).forEach(k => {
-                    let kStripped = stripZeros(k);
-                    if (kStripped.startsWith(coreScan) || kStripped.includes(coreScan)) matches.add(k);
-                });
-            }
-
-            return Array.from(matches);
-        }
-        
-        function fuzzyMatchUPC(scannedCode) {
-            let all = fuzzyMatchUPCAll(scannedCode);
-            return all.length > 0 ? all[0] : null;
-        }
-
-        function searchUPC(upcToSearch = null) {
-            let target = upcToSearch || currentInput;
-            if (!target) return;
-            playBeep('success');
-            
-            let matchedKeys = fuzzyMatchUPCAll(target);
-            const container = document.getElementById('result-container');
-            container.innerHTML = '';
-            
-            if (matchedKeys.length === 0) {
-                container.innerHTML = `
-                <div class="result-card" style="text-align:center;">
-                    <h3 style="color:var(--danger);margin-bottom:15px;">Item Not Found</h3>
-                    <p style="margin-bottom:15px;">Scanned: ${stripZeros(target)}</p>
-                    <button class="btn btn-green btn-full" onclick="openAddModal('${formatUPC14(target)}')">➕ Add New Item</button>
-                </div>`;
-            } else {
-                let html = matchedKeys.length > 1 
-                    ? `<h3 style="margin-top:15px; color:var(--success); text-align:center;">Found ${matchedKeys.length} Matching Items</h3>` 
-                    : ``;
-                    
-                matchedKeys.forEach(upc => {
-                    let item = inventory[upc];
-                    let modQty = modifiedItems[upc] ? modifiedItems[upc].qty : (item.qty || 0);
-                    let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${parseFloat(item.oldPrice).toFixed(2)}</span> $${parseFloat(item.price).toFixed(2)}` : `$${parseFloat(item.price).toFixed(2)}`;
-                    
-                    html += `
-                    <div class="result-card">
-                        <div class="result-title">${item.desc}</div>
-                        <div class="result-row"><span>UPC:</span> <span>${upc}</span></div>
-                        <div class="result-row"><span>Dept:</span> <span>${item.dept || "1"}</span></div>
-                        <div class="result-row"><span>Qty on Hand:</span> <span>${modQty}</span></div>
-                        <div class="result-row" style="margin-top:10px;"><span>Price:</span> <span class="price-tag">${priceHtml}</span></div>
-                        
-                        <div class="action-row" style="margin-top:15px;">
-                            <button class="btn btn-blue" onclick="openEditModal('${upc}')">✏️ Edit</button>
-                            <button class="btn btn-green" onclick="openPrintModal('${upc}')">🏷️ Print Tag</button>
-                        </div>
-                        <button class="btn btn-red btn-full" style="margin-top:10px;" onclick="deleteItem('${upc}')">🗑️ Delete</button>
-                    </div>`;
-                });
-                container.innerHTML = html;
+        function addNewVendor() {
+            let name = document.getElementById('new-vendor-name').value.trim();
+            if(!name) return;
+            if(!vendors.includes(name)) {
+                vendors.push(name);
+                localStorage.setItem('commander_vendors', JSON.stringify(vendors));
+                updateVendorDropdown();
+                document.getElementById('new-vendor-name').value = '';
+                openVendorManagerModal();
+                showAlert("Vendor added", "var(--success)");
             }
         }
 
-        function openPrintModal(upc) {
-            currentPrintUPC = upc;
-            let item = inventory[upc];
-            document.getElementById('print-label-desc').innerText = item.desc;
-            document.getElementById('print-label-upc').innerText = "UPC: " + upc;
-            document.getElementById('print-label-modal').style.display = 'flex';
+        function removeVendor(name) {
+            if(vendors.length <= 1) { showAlert("Must keep at least one vendor", "var(--danger)"); return; }
+            vendors = vendors.filter(v => v !== name);
+            localStorage.setItem('commander_vendors', JSON.stringify(vendors));
+            updateVendorDropdown();
+            openVendorManagerModal();
         }
 
-        function executePrintLabel() {
-            let upc = currentPrintUPC;
-            let item = inventory[upc];
-            if (!item) return;
+        function initSignaturePad() {
+            const canvas = document.getElementById('signature-canvas');
+            if(!canvas) return;
+            canvasCtx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            canvasCtx.strokeStyle = '#000';
+            canvasCtx.lineWidth = 2;
 
-            let tagSize = document.getElementById('print-label-size').value;
+            const getPos = e => {
+                const rect = canvas.getBoundingClientRect();
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            };
+
+            canvas.addEventListener('mousedown', e => { isDrawing = true; let pos = getPos(e); canvasCtx.beginPath(); canvasCtx.moveTo(pos.x, pos.y); });
+            canvas.addEventListener('mousemove', e => { if(!isDrawing) return; let pos = getPos(e); canvasCtx.lineTo(pos.x, pos.y); canvasCtx.stroke(); });
+            window.addEventListener('mouseup', () => { isDrawing = false; });
             
-            document.getElementById('tag-print-desc').innerText = item.desc;
-            document.getElementById('tag-print-price').innerText = "$" + parseFloat(item.price).toFixed(2);
-            
+            canvas.addEventListener('touchstart', e => { isDrawing = true; let pos = getPos(e); canvasCtx.beginPath(); canvasCtx.moveTo(pos.x, pos.y); e.preventDefault(); });
+            canvas.addEventListener('touchmove', e => { if(!isDrawing) return; let pos = getPos(e); canvasCtx.lineTo(pos.x, pos.y); canvasCtx.stroke(); e.preventDefault(); });
+            window.addEventListener('touchend', () => { isDrawing = false; });
+        }
+
+        function clearSignature() {
+            if(canvasCtx) canvasCtx.clearRect(0, 0, document.getElementById('signature-canvas').width, document.getElementById('signature-canvas').height);
+            driverSignatureDataURL = null;
+        }
+
+        function saveSignature() {
+            const canvas = document.getElementById('signature-canvas');
+            driverSignatureDataURL = canvas.toDataURL('image/png');
+            closeModal('signature-modal');
+            showAlert("Signature Captured!", "var(--success)");
+        }
+
+        function openSignatureModal() {
+            document.getElementById('signature-modal').style.display = 'flex';
+            setTimeout(initSignaturePad, 100);
+        }
+      // --- OCR Document / Price Sheet Processing ---
+        async function processVendorDocument(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            document.getElementById('ocr-status').innerText = "Reading invoice/price list via OCR... Please wait.";
             try {
-                JsBarcode("#tag-print-barcode", stripZeros(upc), {
-                    format: "UPC", 
-                    displayValue: true,
-                    margin: 0,
-                    height: 40,
-                    valid: function(valid) {
-                        if(!valid) { JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 }); }
-                    }
-                });
+                const worker = await Tesseract.createWorker('eng');
+                const ret = await worker.recognize(file);
+                await worker.terminate();
+                document.getElementById('ocr-status').innerText = "OCR Complete! Parsed text successfully.";
+                showAlert("Document read successfully!", "var(--success)");
             } catch(e) {
-                JsBarcode("#tag-print-barcode", stripZeros(upc), { format: "CODE128", displayValue: true, margin: 0, height: 40 });
-            }
-
-            let tagElem = document.getElementById('active-print-tag');
-            tagElem.className = "shelf-tag " + tagSize;
-
-            closeModal('print-label-modal');
-            document.body.classList.add('printing-label');
-            window.print();
-            setTimeout(() => { document.body.classList.remove('printing-label'); }, 1500);
-        }
-
-        function openEditModal(upc) {
-            let item = inventory[upc] || modifiedItems[upc];
-            document.getElementById('modal-title').innerText = "Edit Item";
-            document.getElementById('edit-upc').value = upc;
-            document.getElementById('edit-upc').readOnly = true;
-            document.getElementById('edit-desc').value = item.desc;
-            document.getElementById('edit-price').value = item.price;
-            document.getElementById('edit-qty').value = modifiedItems[upc] ? modifiedItems[upc].qty : (item.qty || 0);
-            document.getElementById('edit-dept').value = item.dept || "1";
-            document.getElementById('edit-mod').value = item.mod || "000";
-            document.getElementById('edit-modal').style.display = 'flex';
-        }
-
-        function openAddModal(upc) {
-            document.getElementById('modal-title').innerText = "Add New Item";
-            document.getElementById('edit-upc').value = upc;
-            document.getElementById('edit-upc').readOnly = false;
-            document.getElementById('edit-desc').value = "";
-            document.getElementById('edit-price').value = "0.00";
-            document.getElementById('edit-qty').value = "1";
-            document.getElementById('edit-dept').value = "1";
-            document.getElementById('edit-mod').value = "000";
-            document.getElementById('edit-modal').style.display = 'flex';
-        }
-
-        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-
-        function saveItem() {
-            let upc = formatUPC14(document.getElementById('edit-upc').value);
-            let desc = document.getElementById('edit-desc').value;
-            let price = parseFloat(document.getElementById('edit-price').value).toFixed(2);
-            let qty = parseInt(document.getElementById('edit-qty').value) || 0;
-            let dept = document.getElementById('edit-dept').value;
-            let mod = document.getElementById('edit-mod').value;
-            if(!upc || !desc) { showAlert("UPC and Description required", "var(--danger)"); return; }
-            let oldPrice = inventory[upc] ? inventory[upc].price : price;
-            
-            let newItem = { desc, price, oldPrice, qty, dept, mod, status: inventory[upc] ? 'MODIFIED' : 'NEW' };
-            inventory[upc] = { ...inventory[upc], ...newItem };
-            modifiedItems[upc] = newItem;
-            persistData(); updateInventoryTable(); closeModal('edit-modal'); searchUPC(upc);
-            showAlert("Item Saved!", "var(--success)");
-        }
-
-        function deleteItem(upc) {
-            if(confirm("Are you sure you want to delete " + upc + "?")) {
-                let item = inventory[upc];
-                item.status = 'DELETED';
-                modifiedItems[upc] = item;
-                delete inventory[upc];
-                persistData(); updateInventoryTable(); 
-                document.getElementById('result-container').innerHTML = "";
-                showAlert("Item Deleted", "var(--danger)");
+                document.getElementById('ocr-status').innerText = "OCR Error reading document.";
+                showAlert("Could not parse document.", "var(--danger)");
             }
         }
 
-        async function openCamera(speedMode = false) {
-            isSpeedScan = speedMode; lockedUPC = null;
-            document.getElementById('qty-panel').style.display = 'none';
-            document.getElementById('scanner-container').style.display = 'flex';
-            const video = document.getElementById('camera-feed');
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = stream;
-                requestAnimationFrame(scanVideo);
-            } catch (err) {
-                showAlert("Camera permission denied.", "var(--danger)"); closeCamera();
-            }
-        }
-
-        function closeCamera() {
-            if (stream) stream.getTracks().forEach(track => track.stop());
-            document.getElementById('scanner-container').style.display = 'none';
-            isSpeedScan = false;
-        }
-
-        async function scanVideo() {
-            if (!stream || document.getElementById('scanner-container').style.display === 'none') return;
-            const video = document.getElementById('camera-feed');
-            
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                if (barcodeDetector) {
-                    try {
-                        const barcodes = await barcodeDetector.detect(video);
-                        if (barcodes.length > 0) { handleScanResult(barcodes[0].rawValue); return; }
-                    } catch (e) {}
-                } else if (zxingReader) {
-                    try {
-                        const result = await zxingReader.decodeFromVideoElement(video);
-                        if (result) { handleScanResult(result.text); return; }
-                    } catch (e) {}
-                }
-            }
-            
-            if (document.getElementById('scanner-container').style.display !== 'none') {
-                requestAnimationFrame(scanVideo);
-            }
-        }
-
-        function handleScanResult(code) {
-            if (isVendorCheckInActive) {
-                handleVendorScanResult(code);
-                return;
-            }
-
-            if (isSpeedScan) {
-                let matchedKey = fuzzyMatchUPC(code);
-                let upc = matchedKey ? matchedKey : formatUPC14(code);
-                
-                if (lockedUPC === null) {
-                    playBeep('success'); lockedUPC = upc;
-                    let existingItem = inventory[upc];
-                    
-                    document.getElementById('qty-lock-title').innerText = existingItem ? existingItem.desc : "Unknown Item";
-                    document.getElementById('qty-lock-upc').innerText = "UPC: " + upc;
-                    document.getElementById('qty-lock-price').innerText = existingItem ? "$" + parseFloat(existingItem.price).toFixed(2) : "$0.00";
-                    
-                    let baseQty = modifiedItems[upc] ? modifiedItems[upc].qty : (existingItem ? existingItem.qty || 0 : 0);
-                    lockedQty = baseQty + 1;
-                    document.getElementById('qty-lock-val').innerText = lockedQty;
-                    
-                    document.getElementById('qty-panel').style.display = 'flex';
-                    const flash = document.getElementById('speed-success');
-                    flash.innerText = "+1 Scanned!"; flash.style.display = 'block';
-                    setTimeout(() => flash.style.display = 'none', 1000);
-                    setTimeout(() => requestAnimationFrame(scanVideo), 1000);
-                } else if (lockedUPC === upc) {
-                    playBeep('success'); lockedQty++;
-                    document.getElementById('qty-lock-val').innerText = lockedQty;
-                    const flash = document.getElementById('speed-success');
-                    flash.innerText = "+1 Scanned!"; flash.style.display = 'block';
-                    setTimeout(() => flash.style.display = 'none', 1000);
-                    setTimeout(() => requestAnimationFrame(scanVideo), 1000);
-                } else { setTimeout(() => requestAnimationFrame(scanVideo), 500); }
-            } else {
-                playBeep('success'); currentInput = stripZeros(code);
-                document.getElementById('upc-display').innerText = currentInput;
-                closeCamera(); searchUPC(currentInput);
-            }
-        }
-
-        function adjustSpeedQty(val) {
-            playBeep('tap'); lockedQty += val;
-            if (lockedQty < 0) lockedQty = 0;
-            document.getElementById('qty-lock-val').innerText = lockedQty;
-        }
-
-        function confirmSpeedQty() {
-            if (lockedUPC) {
-                let existingItem = inventory[lockedUPC] || { desc: "Unknown Item", price: "0.00", dept: "1", mod: "000" };
-                let modItem = { ...existingItem, qty: lockedQty, status: inventory[lockedUPC] ? 'QTY UPDATE' : 'NEW' };
-                inventory[lockedUPC] = modItem; modifiedItems[lockedUPC] = modItem;
-                persistData(); updateInventoryTable(); lockedUPC = null;
-                document.getElementById('qty-panel').style.display = 'none';
-                showAlert("Saved. Scan next item.", "var(--success)"); requestAnimationFrame(scanVideo);
-            }
-        }
-
-        function finishSpeedScan() {
-            if (lockedUPC) confirmSpeedQty();
-            closeCamera(); switchTab('inventory'); printDualFormatPDF();
-        }
-
-        // --- DUAL-FORMAT PDF PRINT ENGINE ---
-        function printDualFormatPDF() {
-            const { jsPDF } = window.jspdf || {};
-            if (!jsPDF) {
-                window.print();
-                return;
-            }
-            
-            const choice = confirm("Press [OK] to generate 80mm Thermal Receipt\nPress [Cancel] for Full Legal Size Report (8.5\" x 14\")");
-            const targetFormat = choice ? [80, 220] : 'legal';
-            
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: targetFormat });
-            let y = 14;
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.text("STORE SCAN 2.0 — INVENTORY AUDIT", 14, y);
-            y += 6;
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
-            y += 10;
-
-            doc.setLineWidth(0.3);
-            doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
-            y += 5;
-
-            let keys = Object.keys(modifiedItems);
-            if (keys.length === 0) {
-                doc.text("No modifications recorded in current session.", 14, y);
-            } else {
-                doc.setFont("helvetica", "bold");
-                doc.text("UPC", 14, y);
-                doc.text("DESCRIPTION", 50, y);
-                doc.text("QTY", 150, y);
-                doc.text("PRICE", 185, y, { align: 'right' });
-                y += 4;
-                doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
-                y += 5;
-
-                doc.setFont("helvetica", "normal");
-                keys.forEach(upc => {
-                    let item = modifiedItems[upc];
-                    doc.text(String(upc), 14, y);
-                    doc.text(String(item.desc || '').substring(0, 30), 50, y);
-                    doc.text(String(item.qty || 0), 150, y);
-                    doc.text(`$${parseFloat(item.price || 0).toFixed(2)}`, 185, y, { align: 'right' });
-                    y += 6;
-                });
-            }
-
-            const blobUrl = URL.createObjectURL(doc.output('blob'));
-            window.open(blobUrl, '_blank');
-        }
-
-        // --- VENDOR CHECK-IN WORKFLOW ---
-        function startVendorScan() {
-            isVendorCheckInActive = true;
-            openCamera(false);
-        }
-
-        function handleVendorScanResult(code) {
-            let upc = formatUPC14(code);
-            activeVendorUPC = upc;
-            let item = inventory[upc] || modifiedItems[upc];
-
-            if (!item) {
-                playBeep('danger');
-                closeCamera();
-                document.getElementById('modal-unknown-upc').innerText = `UPC: ${upc} (NOT FOUND)`;
-                document.getElementById('unknown-item-desc').value = '';
-                document.getElementById('unknown-item-retail').value = '';
-                document.getElementById('vendor-unknown-modal').style.display = 'flex';
-            } else {
-                playBeep('success');
-                let boxQty = prompt(`[FOUND] ${item.desc}\nEnter quantity received in box:`, "1");
-                if (boxQty !== null) {
-                    recordVendorItem(upc, item.desc, parseFloat(item.price), parseInt(boxQty) || 1, false);
-                }
-                closeCamera();
-                isVendorCheckInActive = false;
-            }
-        }
-
-        function saveUnknownVendorItem() {
-            let desc = document.getElementById('unknown-item-desc').value.trim().toUpperCase();
-            let retail = parseFloat(document.getElementById('unknown-item-retail').value) || 0;
-
-            if (!desc) {
-                showAlert("Please enter a description", "var(--danger)");
-                return;
-            }
-
-            let newItem = { desc, price: retail.toFixed(2), oldPrice: retail.toFixed(2), qty: 0, dept: "1", mod: "000", status: 'NEW' };
-            inventory[activeVendorUPC] = newItem;
-            modifiedItems[activeVendorUPC] = newItem;
-            persistData();
-
-            let boxQty = parseInt(prompt("Enter quantity received in box:", "1")) || 1;
-            recordVendorItem(activeVendorUPC, desc, retail, boxQty, true);
-            closeModal('vendor-unknown-modal');
-        }
-
-        function applyCostMarkupPrompt() {
-            let costInput = prompt("Enter Wholesale Cost ($):", "0.00");
-            if (costInput === null) return;
-            let cost = parseFloat(costInput) || 0;
-            let calculatedRetail = (cost * 1.35).toFixed(2);
-            let finalRetail = prompt("Calculated Retail (35% markup):", calculatedRetail);
-            document.getElementById('unknown-item-retail').value = finalRetail || calculatedRetail;
-        }
-
-        function recordVendorItem(upc, desc, price, boxQty, isNew) {
-            if (!vendorSessionItems[upc]) {
-                vendorSessionItems[upc] = { desc, price, qty: 0, isNew };
-            }
-            vendorSessionItems[upc].qty += boxQty;
-
-            if (inventory[upc]) {
-                inventory[upc].qty = (parseInt(inventory[upc].qty) || 0) + boxQty;
-                modifiedItems[upc] = inventory[upc];
-            }
-            persistData();
-            updateVendorCheckInTable();
-            showAlert(`Added +${boxQty} received quantity`, "var(--success)");
-        }
-
-        function updateVendorCheckInTable() {
-            const tbody = document.getElementById('vendor-checkin-list');
-            let keys = Object.keys(vendorSessionItems);
-            if (keys.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>`;
-                return;
-            }
-            let html = "";
-            keys.forEach(upc => {
-                let item = vendorSessionItems[upc];
-                let rowColor = item.isNew ? 'color: var(--danger); font-weight: bold;' : 'color: white;';
-                html += `
-                    <tr style="${rowColor}">
-                        <td>${upc} ${item.isNew ? '(NEW)' : ''}</td>
-                        <td>${item.desc}</td>
-                        <td><input type="number" value="${item.qty}" style="width:70px; background:#111827; color:white; border:1px solid #4b5563; padding:4px; border-radius:4px;" onchange="updateVendorQty('${upc}', this.value)"></td>
-                        <td>$${parseFloat(item.price).toFixed(2)}</td>
-                        <td><button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendorItem('${upc}')">X</button></td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        function updateVendorQty(upc, newQty) {
-            let q = parseInt(newQty) || 0;
-            if (vendorSessionItems[upc]) {
-                vendorSessionItems[upc].qty = q;
-                if (inventory[upc]) inventory[upc].qty = q;
-                persistData();
-            }
-        }
-
-        function removeVendorItem(upc) {
-            delete vendorSessionItems[upc];
-            updateVendorCheckInTable();
-        }
-
-        function finishVendorCheckIn() {
-            if (Object.keys(vendorSessionItems).length === 0) {
-                showAlert("No items in vendor check-in session.", "var(--danger)");
-                return;
-            }
+        // --- QR Code Transfer ---
+        function showReportQRCode() {
             let vendorName = document.getElementById('vendor-select').value;
-            alert(`Vendor Check-In Complete for ${vendorName}! Generating DSD report...`);
-            printDualFormatPDF();
+            let summaryText = `Vendor DSD Report: ${vendorName}\nItems: ${Object.keys(vendorSessionItems).length}\nDate: ${new Date().toLocaleString()}`;
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = "";
+            new QRCode(container, { text: summaryText, width: 200, height: 200 });
+            document.getElementById('qrcode-modal').style.display = 'flex';
         }
 
+        // --- Persistence & Tables ---
         function persistData() {
             try {
                 localStorage.setItem('commander_inventory', JSON.stringify(inventory));
@@ -1017,15 +672,111 @@
         function updateInventoryTable() {
             const list = document.getElementById('inventory-list');
             list.innerHTML = ""; let keys = Object.keys(modifiedItems);
-            if (keys.length === 0) { list.innerHTML = "<tr><td colspan='4' style='text-align:center; color:var(--gray);'>No active changes.</td></tr>"; return; }
+            if (keys.length === 0) { list.innerHTML = "<tr><td colspan='5' style='text-align:center; color:var(--gray);'>No active changes.</td></tr>"; return; }
             keys.forEach(upc => {
                 let item = modifiedItems[upc];
-                let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${parseFloat(item.oldPrice).toFixed(2)}</span> $${parseFloat(item.price).toFixed(2)}` : `$${parseFloat(item.price).toFixed(2)}`;
-                let statColor = item.status === 'DELETED' ? 'var(--danger)' : 'white';
-                list.innerHTML += `<tr style="color:${statColor}"><td>${upc}</td><td>${item.desc}</td><td>${item.qty || 0}</td><td>${priceHtml}</td></tr>`;
+                let priceHtml = item.oldPrice && item.oldPrice !== item.price ? `<span class="old-price">$${parseFloat(item.oldPrice).toFixed(2)}</span> $${parseFloat(item.price || 0).toFixed(2)}` : `$${parseFloat(item.price || 0).toFixed(2)}`;
+                list.innerHTML += `<tr><td>${upc}</td><td>${item.desc}</td><td>${item.qty || 0}</td><td>${priceHtml}</td><td>$${parseFloat(item.cost || 0).toFixed(2)}</td></tr>`;
             });
         }
 
+        function typeNum(val) {
+            playBeep('tap');
+            if (val === 'C') { currentInput = ""; } 
+            else if (val === 'DEL') { currentInput = currentInput.slice(0, -1); } 
+            else { currentInput += val; }
+            document.getElementById('upc-display').innerText = currentInput || "Ready";
+        }
+
+        function stripZeros(upc) { return upc.replace(/^0+/, ''); }
+        function formatUPC14(upc) { return stripZeros(upc).padStart(14, '0'); }
+        
+        function fuzzyMatchUPCAll(scannedCode) {
+            let strippedScan = stripZeros(scannedCode);
+            let matches = new Set();
+            Object.keys(inventory).forEach(k => { if (stripZeros(k) === strippedScan) matches.add(k); });
+            Object.keys(inventory).forEach(k => { if (stripZeros(k).startsWith(strippedScan)) matches.add(k); });
+            return Array.from(matches);
+        }
+        
+        function fuzzyMatchUPC(scannedCode) { let all = fuzzyMatchUPCAll(scannedCode); return all.length > 0 ? all[0] : null; }
+
+        function searchUPC(upcToSearch = null) {
+            let target = upcToSearch || currentInput;
+            if (!target) return;
+            playBeep('success');
+            let matchedKeys = fuzzyMatchUPCAll(target);
+            const container = document.getElementById('result-container');
+            container.innerHTML = '';
+            
+            if (matchedKeys.length === 0) {
+                container.innerHTML = `<div class="result-card" style="text-align:center;"><h3 style="color:var(--danger);margin-bottom:15px;">Item Not Found</h3><button class="btn btn-green btn-full" onclick="openAddModal('${formatUPC14(target)}')">➕ Add New Item</button></div>`;
+            } else {
+                let html = "";
+                matchedKeys.forEach(upc => {
+                    let item = inventory[upc];
+                    let profit = calculateProfitMargin(item.cost, item.price);
+                    html += `
+                        <div class="result-card">
+                            <div class="result-title">${item.desc}</div>
+                            <div class="result-row"><span>UPC:</span> <span>${upc}</span></div>
+                            <div class="result-row"><span>Cost:</span> <span>$${parseFloat(item.cost || 0).toFixed(2)}</span></div>
+                            <div class="result-row"><span>MSRP:</span> <span>$${parseFloat(item.msrp || 0).toFixed(2)}</span></div>
+                            <div class="result-row"><span>Selling Price:</span> <span class="price-tag">$${parseFloat(item.price || 0).toFixed(2)}</span></div>
+                            <div class="result-row"><span>Gross Margin:</span> <span style="color:var(--warning); font-weight:bold;">${profit}</span></div>
+                            <button class="btn btn-blue btn-full" style="margin-top:10px;" onclick="openEditModal('${upc}')">✏️ Edit Item</button>
+                        </div>`;
+                });
+                container.innerHTML = html;
+            }
+        }
+
+        function openEditModal(upc) {
+            let item = inventory[upc] || modifiedItems[upc] || {};
+            document.getElementById('modal-title').innerText = "Edit Item";
+            document.getElementById('edit-upc').value = upc;
+            document.getElementById('edit-upc').readOnly = true;
+            document.getElementById('edit-desc').value = item.desc || "";
+            document.getElementById('edit-cost').value = item.cost || "0.00";
+            document.getElementById('edit-msrp').value = item.msrp || "0.00";
+            document.getElementById('edit-price').value = item.price || "0.00";
+            document.getElementById('edit-qty').value = modifiedItems[upc] ? modifiedItems[upc].qty : (item.qty || 0);
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function openAddModal(upc) {
+            document.getElementById('modal-title').innerText = "Add New Item";
+            document.getElementById('edit-upc').value = upc;
+            document.getElementById('edit-upc').readOnly = false;
+            document.getElementById('edit-desc').value = "";
+            document.getElementById('edit-cost').value = "0.00";
+            document.getElementById('edit-msrp').value = "0.00";
+            document.getElementById('edit-price').value = "0.00";
+            document.getElementById('edit-qty').value = "1";
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+
+        function saveItem() {
+            let upc = formatUPC14(document.getElementById('edit-upc').value);
+            let desc = document.getElementById('edit-desc').value.trim();
+            let cost = parseFloat(document.getElementById('edit-cost').value) || 0;
+            let msrp = parseFloat(document.getElementById('edit-msrp').value) || 0;
+            let price = parseFloat(document.getElementById('edit-price').value) || 0;
+            let qty = parseInt(document.getElementById('edit-qty').value) || 0;
+            
+            if(!upc || !desc) { showAlert("UPC and Description required", "var(--danger)"); return; }
+            
+            let oldPrice = inventory[upc] ? inventory[upc].price : price;
+            let newItem = { desc, cost: cost.toFixed(2), msrp: msrp.toFixed(2), price: price.toFixed(2), oldPrice, qty, status: 'MODIFIED' };
+            
+            inventory[upc] = { ...inventory[upc], ...newItem };
+            modifiedItems[upc] = newItem;
+            persistData(); updateInventoryTable(); closeModal('edit-modal'); showAlert("Item Saved!", "var(--success)");
+        }
+
+        // --- Folder Sync Logic ---
         async function setupFolderSync() {
             if (!('showDirectoryPicker' in window)) {
                 document.getElementById('xml-upload').click();
@@ -1035,7 +786,6 @@
                 pluDirectoryHandle = await window.showDirectoryPicker();
                 let db = await openDB();
                 await saveToDB(db, 'pluFolderHandle', pluDirectoryHandle);
-                
                 document.getElementById('sync-plu-btn').style.display = 'block';
                 document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
                 await syncPLUs(); 
@@ -1051,21 +801,19 @@
                         return;
                     }
                 }
-                
                 showAlert("Syncing PLUs... Please wait.", "var(--primary)");
                 let totalAdded = 0;
-                
                 for await (const entry of pluDirectoryHandle.values()) {
                     if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.xml')) {
                         const file = await entry.getFile();
                         totalAdded += await parseXMLFile(file);
                     }
                 }
-                
                 if (totalAdded === 0) { 
                     showAlert("No valid PLUs found in folder.", "var(--danger)"); 
                 } else {
                     persistData(); 
+                    updateInventoryTable();
                     showAlert(`Successfully synced ${totalAdded} items!`, "var(--success)");
                 }
             } catch(e) {
@@ -1103,9 +851,15 @@
                             let upc = formatUPC14(upcNode.textContent);
                             let descNode = node.getElementsByTagName('description')[0];
                             let priceNode = node.getElementsByTagName('price')[0];
-                            let deptNode = node.getElementsByTagName('department')[0];
-                            let modNode = node.getElementsByTagName('upcModifier')[0];
-                            inventory[upc] = { desc: descNode ? descNode.textContent : "Unknown", price: priceNode ? parseFloat(priceNode.textContent).toFixed(2) : "0.00", dept: deptNode ? deptNode.textContent : "1", mod: modNode ? modNode.textContent : "000", qty: 0 };
+                            let costNode = node.getElementsByTagName('cost')[0];
+                            let msrpNode = node.getElementsByTagName('msrp')[0];
+                            inventory[upc] = { 
+                                desc: descNode ? descNode.textContent : "Unknown", 
+                                price: priceNode ? parseFloat(priceNode.textContent).toFixed(2) : "0.00",
+                                cost: costNode ? parseFloat(costNode.textContent).toFixed(2) : "0.00",
+                                msrp: msrpNode ? parseFloat(msrpNode.textContent).toFixed(2) : "0.00",
+                                qty: 0 
+                            };
                             added++;
                         }
                     }
@@ -1119,7 +873,7 @@
             for (let upc in inventory) {
                 let item = inventory[upc];
                 if (item.status === 'DELETED') continue;
-                xml += `  <domain:PLU>\n    <upc>${upc}</upc>\n    <upcModifier>${item.mod || "000"}</upcModifier>\n    <description>${item.desc}</description>\n    <department>${item.dept || "1"}</department>\n    <price>${item.price}</price>\n    <SellUnit>1.000</SellUnit>\n  </domain:PLU>\n`;
+                xml += `  <domain:PLU>\n    <upc>${upc}</upc>\n    <description>${item.desc}</description>\n    <price>${item.price}</price>\n    <SellUnit>1.000</SellUnit>\n  </domain:PLU>\n`;
             }
             xml += `</domain:PLUs>`;
             const blob = new Blob([xml], { type: 'text/xml' });
@@ -1149,6 +903,247 @@
                 tx.objectStore('settings').put(val, key);
                 tx.oncomplete = () => resolve();
             });
+        }
+      // --- Camera Scanner ---
+        async function openCamera(speedMode = false) {
+            isSpeedScan = speedMode; lockedUPC = null;
+            document.getElementById('qty-panel').style.display = 'none';
+            document.getElementById('scanner-container').style.display = 'flex';
+            const video = document.getElementById('camera-feed');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                requestAnimationFrame(scanVideo);
+            } catch (err) { showAlert("Camera permission denied.", "var(--danger)"); closeCamera(); }
+        }
+
+        function closeCamera() {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            document.getElementById('scanner-container').style.display = 'none';
+            isSpeedScan = false;
+        }
+
+        async function scanVideo() {
+            if (!stream || document.getElementById('scanner-container').style.display === 'none') return;
+            const video = document.getElementById('camera-feed');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                if (barcodeDetector) {
+                    try { const barcodes = await barcodeDetector.detect(video); if (barcodes.length > 0) { handleScanResult(barcodes[0].rawValue); return; } } catch (e) {}
+                } else if (zxingReader) {
+                    try { const result = await zxingReader.decodeFromVideoElement(video); if (result) { handleScanResult(result.text); return; } } catch (e) {}
+                }
+            }
+            if (document.getElementById('scanner-container').style.display !== 'none') requestAnimationFrame(scanVideo);
+        }
+
+        function handleScanResult(code) {
+            if (isVendorCheckInActive) { handleVendorScanResult(code); return; }
+            if (isSpeedScan) {
+                let matchedKey = fuzzyMatchUPC(code);
+                let upc = matchedKey ? matchedKey : formatUPC14(code);
+                if (lockedUPC === null) {
+                    playBeep('success'); lockedUPC = upc;
+                    let existingItem = inventory[upc];
+                    document.getElementById('qty-lock-title').innerText = existingItem ? existingItem.desc : "Unknown Item";
+                    document.getElementById('qty-lock-upc').innerText = "UPC: " + upc;
+                    document.getElementById('qty-lock-price').innerText = existingItem ? "$" + parseFloat(existingItem.price).toFixed(2) : "$0.00";
+                    lockedQty = (modifiedItems[upc] ? modifiedItems[upc].qty : (existingItem ? existingItem.qty || 0 : 0)) + 1;
+                    document.getElementById('qty-lock-val').innerText = lockedQty;
+                    document.getElementById('qty-panel').style.display = 'flex';
+                    setTimeout(() => requestAnimationFrame(scanVideo), 1000);
+                } else if (lockedUPC === upc) {
+                    playBeep('success'); lockedQty++;
+                    document.getElementById('qty-lock-val').innerText = lockedQty;
+                    setTimeout(() => requestAnimationFrame(scanVideo), 1000);
+                }
+            } else {
+                playBeep('success'); currentInput = stripZeros(code);
+                document.getElementById('upc-display').innerText = currentInput;
+                closeCamera(); searchUPC(currentInput);
+            }
+        }
+
+        function adjustSpeedQty(val) { playBeep('tap'); lockedQty = Math.max(0, lockedQty + val); document.getElementById('qty-lock-val').innerText = lockedQty; }
+        function confirmSpeedQty() {
+            if (lockedUPC) {
+                let existingItem = inventory[lockedUPC] || { desc: "Unknown Item", price: "0.00", cost: "0.00" };
+                let modItem = { ...existingItem, qty: lockedQty, status: 'QTY UPDATE' };
+                inventory[lockedUPC] = modItem; modifiedItems[lockedUPC] = modItem;
+                persistData(); updateInventoryTable(); lockedUPC = null;
+                document.getElementById('qty-panel').style.display = 'none';
+                requestAnimationFrame(scanVideo);
+            }
+        }
+        function finishSpeedScan() { if (lockedUPC) confirmSpeedQty(); closeCamera(); switchTab('inventory'); }
+
+        // --- DUAL-FORMAT PDF / THERMAL PRINT ENGINE ---
+        function printDualFormatPDF() {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) { window.print(); return; }
+            
+            const choice = confirm("Press [OK] for 80mm Thermal Receipt\nPress [Cancel] for Legal Size Report (8.5\" x 14\")");
+            const targetFormat = choice ? [80, 240] : 'legal';
+            
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: targetFormat });
+            let y = 14;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("STORE SCAN 2.0 — DSD & INVENTORY AUDIT", 14, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
+            y += 10;
+
+            doc.setLineWidth(0.3);
+            doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+            y += 5;
+
+            let keys = Object.keys(modifiedItems);
+            if (keys.length === 0) {
+                doc.text("No modifications recorded in current session.", 14, y);
+            } else {
+                doc.setFont("helvetica", "bold");
+                doc.text("UPC", 14, y);
+                doc.text("DESCRIPTION", 45, y);
+                doc.text("QTY", 135, y);
+                doc.text("PRICE", 160, y, { align: 'right' });
+                doc.text("COST", 185, y, { align: 'right' });
+                y += 4;
+                doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+                y += 5;
+
+                doc.setFont("helvetica", "normal");
+                keys.forEach(upc => {
+                    let item = modifiedItems[upc];
+                    doc.text(String(upc), 14, y);
+                    doc.text(String(item.desc || '').substring(0, 24), 45, y);
+                    doc.text(String(item.qty || 0), 135, y);
+                    doc.text(`$${parseFloat(item.price || 0).toFixed(2)}`, 160, y, { align: 'right' });
+                    doc.text(`$${parseFloat(item.cost || 0).toFixed(2)}`, 185, y, { align: 'right' });
+                    y += 6;
+                });
+            }
+
+            if(driverSignatureDataURL && targetFormat === 'legal') {
+                y += 10;
+                doc.text("Driver Signature:", 14, y);
+                doc.addImage(driverSignatureDataURL, 'PNG', 14, y + 2, 50, 15);
+            }
+
+            const blobUrl = URL.createObjectURL(doc.output('blob'));
+            window.open(blobUrl, '_blank');
+        }
+
+        // --- VENDOR CHECK-IN WORKFLOW ---
+        function startVendorScan() {
+            isVendorCheckInActive = true;
+            openCamera(false);
+        }
+
+        function handleVendorScanResult(code) {
+            let upc = formatUPC14(code);
+            activeVendorUPC = upc;
+            let item = inventory[upc] || modifiedItems[upc];
+
+            if (!item) {
+                playBeep('danger');
+                closeCamera();
+                document.getElementById('modal-unknown-upc').innerText = `UPC: ${upc} (NOT FOUND)`;
+                document.getElementById('unknown-item-desc').value = '';
+                document.getElementById('unknown-item-cost').value = '';
+                document.getElementById('unknown-item-msrp').value = '';
+                document.getElementById('unknown-item-retail').value = '';
+                document.getElementById('vendor-unknown-modal').style.display = 'flex';
+            } else {
+                playBeep('success');
+                let boxQty = prompt(`[FOUND] ${item.desc}\nEnter quantity received in box:`, "1");
+                if (boxQty !== null) {
+                    let status = prompt("Note status (OK / Short / Damage / Return):", "OK") || "OK";
+                    recordVendorItem(upc, item.desc, parseFloat(item.price), parseFloat(item.cost || 0), parseInt(boxQty) || 1, status, false);
+                }
+                closeCamera();
+                isVendorCheckInActive = false;
+            }
+        }
+
+        function saveUnknownVendorItem() {
+            let desc = document.getElementById('unknown-item-desc').value.trim().toUpperCase();
+            let cost = parseFloat(document.getElementById('unknown-item-cost').value) || 0;
+            let msrp = parseFloat(document.getElementById('unknown-item-msrp').value) || 0;
+            let retail = parseFloat(document.getElementById('unknown-item-retail').value) || 0;
+
+            if (!desc) { showAlert("Please enter a description", "var(--danger)"); return; }
+
+            let newItem = { desc, cost: cost.toFixed(2), msrp: msrp.toFixed(2), price: retail.toFixed(2), oldPrice: retail.toFixed(2), qty: 0, status: 'NEW' };
+            inventory[activeVendorUPC] = newItem;
+            modifiedItems[activeVendorUPC] = newItem;
+            persistData();
+
+            let boxQty = parseInt(prompt("Enter quantity received in box:", "1")) || 1;
+            let status = prompt("Note status (OK / Short / Damage / Return):", "OK") || "OK";
+            recordVendorItem(activeVendorUPC, desc, retail, cost, boxQty, status, true);
+            closeModal('vendor-unknown-modal');
+        }
+
+        function applyCostMarkupPrompt() {
+            let costInput = prompt("Enter Wholesale Cost ($):", "0.00");
+            if (costInput === null) return;
+            let cost = parseFloat(costInput) || 0;
+            let calculatedRetail = (cost * 1.35).toFixed(2);
+            document.getElementById('unknown-item-cost').value = cost.toFixed(2);
+            document.getElementById('unknown-item-msrp').value = calculatedRetail;
+            document.getElementById('unknown-item-retail').value = calculatedRetail;
+        }
+
+        function recordVendorItem(upc, desc, price, cost, boxQty, status, isNew) {
+            vendorSessionItems[upc] = { desc, price, cost, qty: boxQty, status, isNew };
+            if (inventory[upc]) {
+                inventory[upc].qty = (parseInt(inventory[upc].qty) || 0) + boxQty;
+                modifiedItems[upc] = inventory[upc];
+            }
+            persistData();
+            updateVendorCheckInTable();
+            showAlert(`Logged ${desc} (+${boxQty})`, "var(--success)");
+        }
+
+        function updateVendorCheckInTable() {
+            const tbody = document.getElementById('vendor-checkin-list');
+            let keys = Object.keys(vendorSessionItems);
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>`;
+                return;
+            }
+            let html = "";
+            keys.forEach(upc => {
+                let item = vendorSessionItems[upc];
+                let statColor = item.status !== 'OK' ? 'color: var(--danger); font-weight: bold;' : 'color: white;';
+                html += `
+                    <tr style="${statColor}">
+                        <td>${upc}<br><small style="color:var(--gray);">${item.desc}</small></td>
+                        <td>${item.qty}</td>
+                        <td>${item.status}</td>
+                        <td><button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendorItem('${upc}')">X</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function removeVendorItem(upc) {
+            delete vendorSessionItems[upc];
+            updateVendorCheckInTable();
+        }
+
+        function finishVendorCheckIn() {
+            if (Object.keys(vendorSessionItems).length === 0) {
+                showAlert("No items in vendor check-in session.", "var(--danger)");
+                return;
+            }
+            let vendorName = document.getElementById('vendor-select').value;
+            alert(`Vendor Check-In Complete for ${vendorName}! Generating DSD report...`);
+            printDualFormatPDF();
         }
     </script>
 </body>
