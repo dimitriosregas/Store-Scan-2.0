@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Store Scan</title>
+    <title>Store Scan 2.0 - DSD & Thermal Print</title>
     
     <!-- Smartphone App Icon & PWA Settings -->
     <meta name="apple-mobile-web-app-title" content="Store Scan">
@@ -15,9 +15,10 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%234f46e5'/%3E%3Cpath d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/%3E%3Crect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/%3E%3Cpath d='M104 104h-24v64h24v-40h40v-24h-40zm304 0h-40v24h40v40h24v-64h-24zM104 408h-24v-64h24v40h40v24h-40zm304 0h-40v-24h40v-40h24v64h-24z' fill='%23fff' opacity='0.8'/%3E%3C/svg%3E">
 
-    <!-- ZXing Camera Fallback & JsBarcode for Tag Printing -->
+    <!-- ZXing Camera Fallback, JsBarcode for Tag Printing, & jsPDF for 80mm/Legal Generation -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         :root {
@@ -33,8 +34,8 @@
         body { background-color: var(--dark); color: white; height: 100vh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; }
         .header { background-color: var(--primary); padding: 15px; text-align: center; display: flex; justify-content: center; align-items: center; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10; }
         .header svg { width: 24px; height: 24px; }
-        .tabs { display: flex; background-color: #374151; padding: 10px; gap: 10px; }
-        .tab { flex: 1; padding: 12px; text-align: center; background-color: #4b5563; border-radius: 8px; font-weight: bold; color: #d1d5db; }
+        .tabs { display: flex; background-color: #374151; padding: 10px; gap: 6px; overflow-x: auto; }
+        .tab { flex: 1; padding: 10px 8px; text-align: center; background-color: #4b5563; border-radius: 8px; font-weight: bold; color: #d1d5db; font-size: 13px; white-space: nowrap; cursor: pointer; }
         .tab.active { background-color: var(--primary); color: white; }
         .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
         .view { display: none; flex-direction: column; height: 100%; padding: 15px; overflow-y: auto; }
@@ -47,7 +48,7 @@
         .num-btn.clear { background: var(--danger); }
         .num-btn.search { background: var(--primary); grid-column: span 3; padding: 15px; }
         .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .btn { padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; color: white; text-align: center; }
+        .btn { padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; color: white; text-align: center; cursor: pointer; }
         .btn-green { background: var(--success); }
         .btn-blue { background: var(--primary); }
         .btn-red { background: var(--danger); }
@@ -63,14 +64,14 @@
         .scanner-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 150px; border: 2px solid var(--success); box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); border-radius: 12px; }
         .scanner-laser { width: 100%; height: 2px; background: red; position: absolute; top: 50%; animation: scan 2s infinite linear; }
         @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
-        .close-scanner { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); padding: 15px 40px; background: var(--danger); border-radius: 30px; color: white; font-weight: bold; border: none; font-size: 18px; }
+        .close-scanner { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); padding: 15px 40px; background: var(--danger); border-radius: 30px; color: white; font-weight: bold; border: none; font-size: 18px; cursor: pointer; }
         
         #qty-panel { position: absolute; bottom: 0; left: 0; width: 100%; background: #1f2937; padding: 20px; border-top: 4px solid var(--primary); display: none; flex-direction: column; z-index: 110; box-shadow: 0 -10px 20px rgba(0,0,0,0.5); border-radius: 20px 20px 0 0; }
         .qty-header { font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 5px; color: #60a5fa; }
         .qty-desc { text-align: center; color: var(--gray); margin-bottom: 5px; }
         .qty-price { text-align: center; color: var(--success); font-weight: bold; font-size: 20px; margin-bottom: 15px; }
         .qty-controls { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 20px; }
-        .qty-btn { background: #374151; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; color: white; border: none; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .qty-btn { background: #374151; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; color: white; border: none; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .qty-display { font-size: 40px; font-weight: bold; min-width: 60px; text-align: center; }
         .speed-success { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 15px 30px; border-radius: 12px; font-size: 20px; font-weight: bold; display: none; z-index: 120; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         
@@ -90,31 +91,22 @@
         .db-stats span { color: var(--success); font-weight: bold; font-size: 18px; }
         .archive-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         
-        /* Print Area Hidden from standard view */
         #print-label-area { display: none; }
 
         @media print {
-            body { background: white; color: black; height: auto; display: block; overflow: visible; }
-            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal { display: none !important; }
-            .content, .view { display: block !important; padding: 0; overflow: visible; }
-            #view-inventory { display: block !important; }
-            .result-card, .archive-card { background: white; border: 1px solid #ccc; break-inside: avoid; color: black; }
-            .result-title, .price-tag { color: black; }
-            .old-price { color: #666; text-decoration: line-through; margin-right: 10px; }
-            #inventory-tools { display: none !important; }
-            body.printing-modal #view-inventory { display: none !important; }
-            body.printing-modal .modal { position: static; display: block !important; background: white; padding: 0; }
-            body.printing-modal .modal-content { border: none; width: 100%; max-width: 100%; color: black; background: white; }
-            body.printing-modal table th { background: #f3f4f6; color: black; }
-            body.printing-modal table td { border-bottom: 1px solid #ccc; }
+            body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools { display: none !important; }
+            .content, .view { display: block !important; padding: 0 !important; overflow: visible !important; }
+            #view-inventory, #view-vendor { display: block !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #000 !important; padding: 6px !important; color: black !important; }
+            th { background-color: #f3f4f6 !important; }
+            .result-card, .archive-card { background: white !important; border: 1px solid #000 !important; break-inside: avoid !important; color: black !important; }
             
-            /* Shelf Tag Label Printing Overrides */
             body.printing-label .content { display: none !important; }
             body.printing-label #print-label-area { 
-                display: flex !important; 
-                position: absolute; left: 0; top: 0; 
-                margin: 0; padding: 0; background: white; 
-                width: 100%; height: 100%; 
+                display: flex !important; position: absolute; left: 0; top: 0; 
+                margin: 0; padding: 0; background: white; width: 100%; height: 100%; 
                 justify-content: flex-start; align-items: flex-start; 
             }
             .shelf-tag { border: 1px dashed #999; background: white; color: black; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; box-sizing: border-box; page-break-inside: avoid; overflow: hidden; }
@@ -132,57 +124,6 @@
             .tag-peg .shelf-tag-price { font-size: 26px; }
             .tag-peg .shelf-tag-barcode { height: 35px; }
         }
-        @media print {
-    @page {
-        size: letter portrait;
-        margin: 0.2in;
-    }
-    body {
-        background: white !important;
-        color: black !important;
-        height: auto !important;
-        overflow: visible !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools {
-        display: none !important;
-    }
-    .content, .view {
-        display: block !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-    #view-inventory {
-        display: block !important;
-    }
-    /* Force table borders and boxes to print correctly */
-    table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-    }
-    th, td {
-        border: 1px solid #000 !important;
-        padding: 6px !important;
-        color: black !important;
-    }
-    th {
-        background-color: #f3f4f6 !important;
-    }
-    .result-card, .archive-card {
-        background: white !important;
-        border: 1px solid #000 !important;
-        break-inside: avoid !important;
-        color: black !important;
-    }
-    /* Shelf tag boxes override */
-    .shelf-tag {
-        border: 2px dashed #000 !important;
-        background: white !important;
-        color: black !important;
-        page-break-inside: avoid !important;
-    }
-}
     </style>
 </head>
 <body>
@@ -204,18 +145,24 @@
                 osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'danger') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.25);
             }
         }
     </script>
     
     <div class="header">
         <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%23fff' fill-opacity="0.2"/><path d='M120 160h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40zm72 0h24v192h-24zm56 0h40v192h-40z' fill='%23fff'/><rect x='80' y='248' width='352' height='16' fill='%23ef4444' rx='8'/></svg>
-        <h2>Store Scan</h2>
+        <h2>Store Scan 2.0</h2>
     </div>
     
     <div class="tabs">
         <div class="tab active" onclick="switchTab('scanner')">Scanner</div>
         <div class="tab" onclick="switchTab('inventory')">Inventory & XML</div>
+        <div class="tab" onclick="switchTab('vendor')">🚚 Vendor Check-In</div>
     </div>
     
     <div class="custom-alert" id="customAlert">Message</div>
@@ -255,7 +202,7 @@
                 <button class="btn btn-blue btn-full" id="select-folder-btn" onclick="setupFolderSync()">📂 Select PLU Folder...</button>
                 <button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
-                <button class="btn btn-full" style="background:#6b7280" onclick="window.print()">🖨️ Print / PDF Changes</button>
+                <button class="btn btn-full" style="background:#6b7280" onclick="printDualFormatPDF()">🖨️ Dual-Format Print / PDF</button>
                 <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
             </div>
             <div style="margin: 20px 0 10px 0; border-top: 1px solid #4b5563; padding-top: 15px;">
@@ -274,6 +221,49 @@
                 </table>
             </div>
         </div>
+
+        <!-- VENDOR CHECK-IN VIEW -->
+        <div id="view-vendor" class="view">
+            <div class="result-card" style="margin-top:0;">
+                <h3 style="color:#60a5fa; margin-bottom:8px;">🚚 Rapid Vendor Check-In (DSD)</h3>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Select Vendor</label>
+                    <select id="vendor-select">
+                        <option value="Frito-Lay">Frito-Lay</option>
+                        <option value="Coca-Cola">Coca-Cola</option>
+                        <option value="PepsiCo">PepsiCo</option>
+                        <option value="Bimbo Bakeries">Bimbo Bakeries</option>
+                        <option value="Core-Mark">Core-Mark</option>
+                        <option value="Other Vendor">Other / Direct Vendor</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Invoice / Delivery Slip Photo (Optional)</label>
+                    <input type="file" id="invoice-photo-input" accept="image/*" capture="environment" style="background:#111827; padding:8px; border-radius:8px;">
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-green" onclick="startVendorScan()">📷 Scan Delivery Box</button>
+                    <button class="btn btn-blue" onclick="finishVendorCheckIn()">💾 Complete & Print DSD Report</button>
+                </div>
+            </div>
+
+            <div style="margin-top:15px; overflow-x:auto;">
+                <table id="vendor-checkin-table">
+                    <thead>
+                        <tr>
+                            <th>UPC</th>
+                            <th>Description</th>
+                            <th>Box Qty</th>
+                            <th>Price</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vendor-checkin-list">
+                        <tr><td colspan="5" style="text-align:center; color:var(--gray);">No items checked in yet. Scan your first box.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- ARCHIVES MODAL -->
@@ -283,6 +273,29 @@
             <div id="archive-list-container" style="max-height: 60vh; overflow-y: auto;"></div>
             <div class="action-row" style="margin-top: 15px;" id="archive-modal-actions">
                 <button class="btn btn-full" style="background:#6b7280; grid-column: span 2;" onclick="closeArchiveModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UNKNOWN VENDOR ITEM MODAL (RED ALERT) -->
+    <div class="modal" id="vendor-unknown-modal">
+        <div class="modal-content" style="border: 2px solid var(--danger);">
+            <h3 style="color: var(--danger); margin-bottom: 5px;">⚠️ Item Not in Database</h3>
+            <p id="modal-unknown-upc" style="font-family: monospace; color: var(--gray); margin-bottom: 12px;"></p>
+            
+            <div class="form-group">
+                <label>Item Description</label>
+                <input type="text" id="unknown-item-desc" placeholder="e.g. NEW ENERGY DRINK 16OZ">
+            </div>
+            <div class="form-group">
+                <label>Retail Price ($)</label>
+                <input type="number" step="0.01" id="unknown-item-retail" placeholder="0.00">
+            </div>
+            
+            <div class="action-row" style="margin-top: 15px;">
+                <button class="btn btn-green" onclick="saveUnknownVendorItem()">✅ Save & Add Qty</button>
+                <button class="btn" style="background:#d97706;" onclick="applyCostMarkupPrompt()">🏷️ Cost Lookup</button>
+                <button class="btn" style="background:#6b7280; grid-column:span 2;" onclick="closeModal('vendor-unknown-modal')">Cancel</button>
             </div>
         </div>
     </div>
@@ -358,6 +371,7 @@
     
     <!-- Fallback file input for iPhones -->
     <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
+    
     <script>
         let inventory = {};
         let modifiedItems = {};
@@ -371,6 +385,11 @@
         let lockedQty = 0;
         let currentPrintUPC = null;
         let pluDirectoryHandle = null;
+        
+        // Vendor Check-In State
+        let vendorSessionItems = {};
+        let activeVendorUPC = null;
+        let isVendorCheckInActive = false;
 
         window.onload = () => {
             try {
@@ -396,7 +415,6 @@
                 zxingReader = new ZXing.BrowserMultiFormatReader();
             }
 
-            // Upgraded input logic: Allow smartphone folder selection for XML batches fallback
             const xmlInput = document.getElementById('xml-upload');
             if(xmlInput) {
                 xmlInput.setAttribute('multiple', 'true');
@@ -502,7 +520,7 @@
             
             document.getElementById('archive-modal-actions').innerHTML = `
                 <button class="btn btn-blue" onclick="openArchiveModal()">⬅️ Back to List</button>
-                <button class="btn" style="background:#6b7280;" onclick="window.print()">🖨️ Print List</button>
+                <button class="btn" style="background:#6b7280;" onclick="printDualFormatPDF()">🖨️ Dual-Format Print</button>
                 <button class="btn btn-red" style="grid-column: span 2;" onclick="deleteArchive(${index})">🗑️ Delete Archive</button>
             `;
             document.body.classList.add('printing-modal');
@@ -607,6 +625,7 @@
                 container.innerHTML = html;
             }
         }
+
         function openPrintModal(upc) {
             currentPrintUPC = upc;
             let item = inventory[upc];
@@ -643,10 +662,8 @@
             tagElem.className = "shelf-tag " + tagSize;
 
             closeModal('print-label-modal');
-            
             document.body.classList.add('printing-label');
             window.print();
-            
             setTimeout(() => { document.body.classList.remove('printing-label'); }, 1500);
         }
 
@@ -750,6 +767,11 @@
         }
 
         function handleScanResult(code) {
+            if (isVendorCheckInActive) {
+                handleVendorScanResult(code);
+                return;
+            }
+
             if (isSpeedScan) {
                 let matchedKey = fuzzyMatchUPC(code);
                 let upc = matchedKey ? matchedKey : formatUPC14(code);
@@ -805,7 +827,182 @@
 
         function finishSpeedScan() {
             if (lockedUPC) confirmSpeedQty();
-            closeCamera(); switchTab('inventory'); window.print();
+            closeCamera(); switchTab('inventory'); printDualFormatPDF();
+        }
+
+        // --- DUAL-FORMAT PDF PRINT ENGINE ---
+        function printDualFormatPDF() {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                window.print();
+                return;
+            }
+            
+            const choice = confirm("Press [OK] to generate 80mm Thermal Receipt\nPress [Cancel] for Full Legal Size Report (8.5\" x 14\")");
+            const targetFormat = choice ? [80, 220] : 'legal';
+            
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: targetFormat });
+            let y = 14;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("STORE SCAN 2.0 — INVENTORY AUDIT", 14, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
+            y += 10;
+
+            doc.setLineWidth(0.3);
+            doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+            y += 5;
+
+            let keys = Object.keys(modifiedItems);
+            if (keys.length === 0) {
+                doc.text("No modifications recorded in current session.", 14, y);
+            } else {
+                doc.setFont("helvetica", "bold");
+                doc.text("UPC", 14, y);
+                doc.text("DESCRIPTION", 50, y);
+                doc.text("QTY", 150, y);
+                doc.text("PRICE", 185, y, { align: 'right' });
+                y += 4;
+                doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+                y += 5;
+
+                doc.setFont("helvetica", "normal");
+                keys.forEach(upc => {
+                    let item = modifiedItems[upc];
+                    doc.text(String(upc), 14, y);
+                    doc.text(String(item.desc || '').substring(0, 30), 50, y);
+                    doc.text(String(item.qty || 0), 150, y);
+                    doc.text(`$${parseFloat(item.price || 0).toFixed(2)}`, 185, y, { align: 'right' });
+                    y += 6;
+                });
+            }
+
+            const blobUrl = URL.createObjectURL(doc.output('blob'));
+            window.open(blobUrl, '_blank');
+        }
+
+        // --- VENDOR CHECK-IN WORKFLOW ---
+        function startVendorScan() {
+            isVendorCheckInActive = true;
+            openCamera(false);
+        }
+
+        function handleVendorScanResult(code) {
+            let upc = formatUPC14(code);
+            activeVendorUPC = upc;
+            let item = inventory[upc] || modifiedItems[upc];
+
+            if (!item) {
+                playBeep('danger');
+                closeCamera();
+                document.getElementById('modal-unknown-upc').innerText = `UPC: ${upc} (NOT FOUND)`;
+                document.getElementById('unknown-item-desc').value = '';
+                document.getElementById('unknown-item-retail').value = '';
+                document.getElementById('vendor-unknown-modal').style.display = 'flex';
+            } else {
+                playBeep('success');
+                let boxQty = prompt(`[FOUND] ${item.desc}\nEnter quantity received in box:`, "1");
+                if (boxQty !== null) {
+                    recordVendorItem(upc, item.desc, parseFloat(item.price), parseInt(boxQty) || 1, false);
+                }
+                closeCamera();
+                isVendorCheckInActive = false;
+            }
+        }
+
+        function saveUnknownVendorItem() {
+            let desc = document.getElementById('unknown-item-desc').value.trim().toUpperCase();
+            let retail = parseFloat(document.getElementById('unknown-item-retail').value) || 0;
+
+            if (!desc) {
+                showAlert("Please enter a description", "var(--danger)");
+                return;
+            }
+
+            let newItem = { desc, price: retail.toFixed(2), oldPrice: retail.toFixed(2), qty: 0, dept: "1", mod: "000", status: 'NEW' };
+            inventory[activeVendorUPC] = newItem;
+            modifiedItems[activeVendorUPC] = newItem;
+            persistData();
+
+            let boxQty = parseInt(prompt("Enter quantity received in box:", "1")) || 1;
+            recordVendorItem(activeVendorUPC, desc, retail, boxQty, true);
+            closeModal('vendor-unknown-modal');
+        }
+
+        function applyCostMarkupPrompt() {
+            let costInput = prompt("Enter Wholesale Cost ($):", "0.00");
+            if (costInput === null) return;
+            let cost = parseFloat(costInput) || 0;
+            let calculatedRetail = (cost * 1.35).toFixed(2);
+            let finalRetail = prompt("Calculated Retail (35% markup):", calculatedRetail);
+            document.getElementById('unknown-item-retail').value = finalRetail || calculatedRetail;
+        }
+
+        function recordVendorItem(upc, desc, price, boxQty, isNew) {
+            if (!vendorSessionItems[upc]) {
+                vendorSessionItems[upc] = { desc, price, qty: 0, isNew };
+            }
+            vendorSessionItems[upc].qty += boxQty;
+
+            if (inventory[upc]) {
+                inventory[upc].qty = (parseInt(inventory[upc].qty) || 0) + boxQty;
+                modifiedItems[upc] = inventory[upc];
+            }
+            persistData();
+            updateVendorCheckInTable();
+            showAlert(`Added +${boxQty} received quantity`, "var(--success)");
+        }
+
+        function updateVendorCheckInTable() {
+            const tbody = document.getElementById('vendor-checkin-list');
+            let keys = Object.keys(vendorSessionItems);
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>`;
+                return;
+            }
+            let html = "";
+            keys.forEach(upc => {
+                let item = vendorSessionItems[upc];
+                let rowColor = item.isNew ? 'color: var(--danger); font-weight: bold;' : 'color: white;';
+                html += `
+                    <tr style="${rowColor}">
+                        <td>${upc} ${item.isNew ? '(NEW)' : ''}</td>
+                        <td>${item.desc}</td>
+                        <td><input type="number" value="${item.qty}" style="width:70px; background:#111827; color:white; border:1px solid #4b5563; padding:4px; border-radius:4px;" onchange="updateVendorQty('${upc}', this.value)"></td>
+                        <td>$${parseFloat(item.price).toFixed(2)}</td>
+                        <td><button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendorItem('${upc}')">X</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function updateVendorQty(upc, newQty) {
+            let q = parseInt(newQty) || 0;
+            if (vendorSessionItems[upc]) {
+                vendorSessionItems[upc].qty = q;
+                if (inventory[upc]) inventory[upc].qty = q;
+                persistData();
+            }
+        }
+
+        function removeVendorItem(upc) {
+            delete vendorSessionItems[upc];
+            updateVendorCheckInTable();
+        }
+
+        function finishVendorCheckIn() {
+            if (Object.keys(vendorSessionItems).length === 0) {
+                showAlert("No items in vendor check-in session.", "var(--danger)");
+                return;
+            }
+            let vendorName = document.getElementById('vendor-select').value;
+            alert(`Vendor Check-In Complete for ${vendorName}! Generating DSD report...`);
+            printDualFormatPDF();
         }
 
         function persistData() {
@@ -829,9 +1026,6 @@
             });
         }
 
-        // --- Folder Sync Logic ---
-        
-        // 1. Initial Folder Setup
         async function setupFolderSync() {
             if (!('showDirectoryPicker' in window)) {
                 document.getElementById('xml-upload').click();
@@ -845,12 +1039,9 @@
                 document.getElementById('sync-plu-btn').style.display = 'block';
                 document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
                 await syncPLUs(); 
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) {}
         }
 
-        // 2. One-Click Sync Button
         async function syncPLUs() {
             if (!pluDirectoryHandle) return;
             try {
@@ -882,7 +1073,6 @@
             }
         }
 
-        // 3. Fallback for iPhones (Standard File Upload)
         async function handleXMLUpload(event) {
             const files = event.target.files; 
             if (!files || files.length === 0) return;
@@ -898,7 +1088,6 @@
             else { persistData(); showAlert(`Synced ${totalAdded} items!`, "var(--success)"); }
         }
 
-        // Core XML Parser
         async function parseXMLFile(file) {
             let added = 0;
             try {
@@ -921,7 +1110,7 @@
                         }
                     }
                 }
-            } catch(err) { console.error("Error reading file", file.name); }
+            } catch(err) {}
             return added;
         }
 
@@ -939,7 +1128,6 @@
             showAlert("Exported XML successfully.", "var(--success)");
         }
 
-        // Mini Database to remember the folder across app restarts
         function openDB() {
             return new Promise((resolve, reject) => {
                 let req = indexedDB.open('StoreScanDB', 1);
@@ -950,7 +1138,6 @@
         }
         function getFromDB(db, key) {
             return new Promise(resolve => {
-                if(!db.objectStoreNames.contains('settings')) return resolve(null);
                 let req = db.transaction('settings', 'readonly').objectStore('settings').get(key);
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => resolve(null);
