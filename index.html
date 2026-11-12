@@ -210,7 +210,7 @@
             <div id="inventory-tools">
                 <button class="btn btn-blue btn-full" id="select-folder-btn" onclick="setupFolderSync()">📂 Select PLU Folder...</button>
                 <button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
-               <button class="btn btn-yellow btn-full" onclick="document.getElementById('manual-plu-file-input').click()">📄 Import Single PLU XML File...</button>
+                <button class="btn btn-yellow btn-full" onclick="document.getElementById('manual-plu-file-input').click()">📄 Import Single PLU XML File...</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
                 <button class="btn btn-full" style="background:#6b7280" onclick="printDualFormatPDF()">🖨️ Dual-Format Print / PDF</button>
                 <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
@@ -289,7 +289,7 @@
         <div class="modal-content" style="max-width: 500px;">
             <h3 style="margin-bottom: 15px; color: var(--success);" id="archive-modal-title">Past Archives</h3>
             <div id="archive-list-container" style="max-height: 60vh; overflow-y: auto;"></div>
-            <div class="action-row" style="margin-top: 15px;" id="archive-modal-actions">
+            <div class="action-row" style="margin-top: 15px;">
                 <button class="btn btn-full" style="background:#6b7280; grid-column: span 2;" onclick="closeArchiveModal()">Close</button>
             </div>
         </div>
@@ -336,7 +336,7 @@
         </div>
     </div>
 
-    <!-- UNKNOWN VENDOR ITEM MODAL (RED ALERT WITH COST/MSRP) -->
+    <!-- UNKNOWN VENDOR ITEM MODAL -->
     <div class="modal" id="vendor-unknown-modal">
         <div class="modal-content" style="border: 2px solid var(--danger);">
             <h3 style="color: var(--danger); margin-bottom: 5px;">⚠️ Item Not in Database</h3>
@@ -387,7 +387,7 @@
         <button class="close-scanner" onclick="closeCamera()">Close Scanner</button>
     </div>
 
-    <!-- EDIT / ADD ITEM MODAL WITH COST & MSRP -->
+    <!-- EDIT / ADD ITEM MODAL -->
     <div class="modal" id="edit-modal">
         <div class="modal-content">
             <h3 id="modal-title" style="margin-bottom: 15px;">Edit Item</h3>
@@ -403,42 +403,11 @@
             </div>
         </div>
     </div>
-
-    <!-- PRINT LABEL MODAL -->
-    <div class="modal" id="print-label-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px;">Print Shelf Tag</h3>
-            <p id="print-label-desc" style="margin-bottom: 5px; font-weight: bold;"></p>
-            <p id="print-label-upc" style="margin-bottom: 15px; color: var(--gray);"></p>
-            
-            <div class="form-group">
-                <label>Select Tag Size</label>
-                <select id="print-label-size">
-                    <option value="tag-standard">Standard Shelf Tag (2.5" x 1.25")</option>
-                    <option value="tag-large">Large Shelf Tag (3" x 2")</option>
-                    <option value="tag-peg">Peg Hook Tag (2" x 1.25")</option>
-                </select>
-            </div>
-            
-            <div class="action-row" style="margin-top: 15px;">
-                <button class="btn btn-green" onclick="executePrintLabel()">🖨️ Print Tag</button>
-                <button class="btn" style="background:#6b7280" onclick="closeModal('print-label-modal')">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- HIDDEN PRINT AREA -->
-    <div id="print-label-area">
-        <div class="shelf-tag" id="active-print-tag">
-            <div class="shelf-tag-title" id="tag-print-desc">Item Name</div>
-            <div class="shelf-tag-price" id="tag-print-price">$0.00</div>
-            <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
-        </div>
-    </div>
-    
-    <!-- Fallback file input for iPhones -->
+    <!-- Dedicated Manual Single XML File Import & Folder Fallback -->
+    <input type="file" id="manual-plu-file-input" accept=".xml,text/xml,application/xml" style="display:none" onchange="handleManualPLUImport(event)">
     <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
-  <script>
+
+    <script>
         let inventory = {};
         let modifiedItems = {};
         let archives = [];
@@ -450,10 +419,8 @@
         let isSpeedScan = false;
         let lockedUPC = null;
         let lockedQty = 0;
-        let currentPrintUPC = null;
         let pluDirectoryHandle = null;
         
-        // Vendor Check-In State
         let vendorSessionItems = {};
         let activeVendorUPC = null;
         let isVendorCheckInActive = false;
@@ -464,24 +431,11 @@
         window.onload = () => {
             try {
                 const saved = localStorage.getItem('commander_inventory');
-                if(saved) {
-                    inventory = JSON.parse(saved);
-                    document.getElementById('db-count').innerText = Object.keys(inventory).length;
-                }
+                if(saved) { inventory = JSON.parse(saved); document.getElementById('db-count').innerText = Object.keys(inventory).length; }
                 const mods = localStorage.getItem('commander_modified');
-                if(mods) {
-                    modifiedItems = JSON.parse(mods);
-                    updateInventoryTable();
-                }
-                const savedArchives = localStorage.getItem('commander_archives');
-                if(savedArchives) {
-                    archives = JSON.parse(savedArchives);
-                }
+                if(mods) { modifiedItems = JSON.parse(mods); updateInventoryTable(); }
                 const savedVendors = localStorage.getItem('commander_vendors');
-                if(savedVendors) {
-                    vendors = JSON.parse(savedVendors);
-                    updateVendorDropdown();
-                }
+                if(savedVendors) { vendors = JSON.parse(savedVendors); updateVendorDropdown(); }
             } catch(e) {}
 
             if ('BarcodeDetector' in window) {
@@ -496,22 +450,8 @@
                 xmlInput.setAttribute('webkitdirectory', 'true');
                 xmlInput.setAttribute('directory', 'true');
             }
-            
             initSignaturePad();
         };
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            if ('showDirectoryPicker' in window) {
-                try {
-                    let db = await openDB();
-                    pluDirectoryHandle = await getFromDB(db, 'pluFolderHandle');
-                    if (pluDirectoryHandle) {
-                        document.getElementById('sync-plu-btn').style.display = 'block';
-                        document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
-                    }
-                } catch(e) {}
-            }
-        });
 
         function showAlert(msg, color = 'var(--primary)') {
             const al = document.getElementById('customAlert');
@@ -530,11 +470,7 @@
 
         function forceUpdateApp() {
             showAlert("Checking for updates...", "var(--primary)");
-            if ('caches' in window) {
-                caches.keys().then((names) => {
-                    names.forEach(name => caches.delete(name));
-                });
-            }
+            if ('caches' in window) { caches.keys().then((names) => { names.forEach(name => caches.delete(name)); }); }
             setTimeout(() => window.location.reload(true), 1000);
         }
 
@@ -542,8 +478,7 @@
             let c = parseFloat(cost) || 0;
             let p = parseFloat(price) || 0;
             if (c <= 0 || p <= 0) return "0.0%";
-            let margin = ((p - c) / p) * 100;
-            return margin.toFixed(1) + "%";
+            return (((p - c) / p) * 100).toFixed(1) + "%";
         }
 
         function autoCalculateRetail() {
@@ -611,7 +546,6 @@
             canvas.addEventListener('mousedown', e => { isDrawing = true; let pos = getPos(e); canvasCtx.beginPath(); canvasCtx.moveTo(pos.x, pos.y); });
             canvas.addEventListener('mousemove', e => { if(!isDrawing) return; let pos = getPos(e); canvasCtx.lineTo(pos.x, pos.y); canvasCtx.stroke(); });
             window.addEventListener('mouseup', () => { isDrawing = false; });
-            
             canvas.addEventListener('touchstart', e => { isDrawing = true; let pos = getPos(e); canvasCtx.beginPath(); canvasCtx.moveTo(pos.x, pos.y); e.preventDefault(); });
             canvas.addEventListener('touchmove', e => { if(!isDrawing) return; let pos = getPos(e); canvasCtx.lineTo(pos.x, pos.y); canvasCtx.stroke(); e.preventDefault(); });
             window.addEventListener('touchend', () => { isDrawing = false; });
@@ -633,24 +567,22 @@
             document.getElementById('signature-modal').style.display = 'flex';
             setTimeout(initSignaturePad, 100);
         }
-      // --- OCR Document / Price Sheet Processing ---
+
         async function processVendorDocument(event) {
             const file = event.target.files[0];
             if(!file) return;
-            document.getElementById('ocr-status').innerText = "Reading invoice/price list via OCR... Please wait.";
+            document.getElementById('ocr-status').innerText = "Reading invoice via OCR...";
             try {
                 const worker = await Tesseract.createWorker('eng');
-                const ret = await worker.recognize(file);
+                await worker.recognize(file);
                 await worker.terminate();
-                document.getElementById('ocr-status').innerText = "OCR Complete! Parsed text successfully.";
+                document.getElementById('ocr-status').innerText = "OCR Complete!";
                 showAlert("Document read successfully!", "var(--success)");
             } catch(e) {
-                document.getElementById('ocr-status').innerText = "OCR Error reading document.";
-                showAlert("Could not parse document.", "var(--danger)");
+                document.getElementById('ocr-status').innerText = "OCR Error.";
             }
         }
 
-        // --- QR Code Transfer ---
         function showReportQRCode() {
             let vendorName = document.getElementById('vendor-select').value;
             let summaryText = `Vendor DSD Report: ${vendorName}\nItems: ${Object.keys(vendorSessionItems).length}\nDate: ${new Date().toLocaleString()}`;
@@ -660,19 +592,18 @@
             document.getElementById('qrcode-modal').style.display = 'flex';
         }
 
-        // --- Persistence & Tables ---
         function persistData() {
             try {
                 localStorage.setItem('commander_inventory', JSON.stringify(inventory));
                 localStorage.setItem('commander_modified', JSON.stringify(modifiedItems));
-                localStorage.setItem('commander_archives', JSON.stringify(archives));
                 document.getElementById('db-count').innerText = Object.keys(inventory).length;
             } catch(e) {}
         }
 
         function updateInventoryTable() {
             const list = document.getElementById('inventory-list');
-            list.innerHTML = ""; let keys = Object.keys(modifiedItems);
+            list.innerHTML = ""; 
+            let keys = Object.keys(modifiedItems);
             if (keys.length === 0) { list.innerHTML = "<tr><td colspan='5' style='text-align:center; color:var(--gray);'>No active changes.</td></tr>"; return; }
             keys.forEach(upc => {
                 let item = modifiedItems[upc];
@@ -777,7 +708,26 @@
             persistData(); updateInventoryTable(); closeModal('edit-modal'); showAlert("Item Saved!", "var(--success)");
         }
 
-        // --- Folder Sync Logic ---
+        // --- Manual & Folder PLU Import Handlers ---
+        async function handleManualPLUImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            showAlert(`Importing ${file.name}... Please wait.`, "var(--primary)");
+            try {
+                let added = await parseXMLFile(file);
+                if (added === 0) {
+                    showAlert("No valid PLUs found in selected file.", "var(--danger)");
+                } else {
+                    persistData();
+                    updateInventoryTable();
+                    showAlert(`Successfully imported ${added} items from ${file.name}!`, "var(--success)");
+                }
+            } catch(e) {
+                showAlert("Error reading XML file.", "var(--danger)");
+            }
+            event.target.value = '';
+        }
+
         async function setupFolderSync() {
             if (!('showDirectoryPicker' in window)) {
                 document.getElementById('xml-upload').click();
@@ -785,8 +735,6 @@
             }
             try {
                 pluDirectoryHandle = await window.showDirectoryPicker();
-                let db = await openDB();
-                await saveToDB(db, 'pluFolderHandle', pluDirectoryHandle);
                 document.getElementById('sync-plu-btn').style.display = 'block';
                 document.getElementById('select-folder-btn').innerText = "📂 Change PLU Folder...";
                 await syncPLUs(); 
@@ -796,12 +744,6 @@
         async function syncPLUs() {
             if (!pluDirectoryHandle) return;
             try {
-                if (await pluDirectoryHandle.queryPermission({ mode: 'read' }) !== 'granted') {
-                    if (await pluDirectoryHandle.requestPermission({ mode: 'read' }) !== 'granted') {
-                        showAlert("Permission required to sync folder.", "var(--danger)");
-                        return;
-                    }
-                }
                 showAlert("Syncing PLUs... Please wait.", "var(--primary)");
                 let totalAdded = 0;
                 for await (const entry of pluDirectoryHandle.values()) {
@@ -810,31 +752,23 @@
                         totalAdded += await parseXMLFile(file);
                     }
                 }
-                if (totalAdded === 0) { 
-                    showAlert("No valid PLUs found in folder.", "var(--danger)"); 
-                } else {
-                    persistData(); 
-                    updateInventoryTable();
-                    showAlert(`Successfully synced ${totalAdded} items!`, "var(--success)");
-                }
+                if (totalAdded === 0) { showAlert("No valid PLUs found in folder.", "var(--danger)"); } 
+                else { persistData(); updateInventoryTable(); showAlert(`Successfully synced ${totalAdded} items!`, "var(--success)"); }
             } catch(e) {
-                showAlert("Error syncing. Try re-selecting the folder.", "var(--danger)");
+                showAlert("Error syncing folder.", "var(--danger)");
             }
         }
 
         async function handleXMLUpload(event) {
             const files = event.target.files; 
             if (!files || files.length === 0) return;
-            showAlert(`Scanning files... Please wait.`, "var(--primary)");
             let totalAdded = 0;
             for (let i = 0; i < files.length; i++) {
-                let file = files[i];
-                if (file.name.toLowerCase().endsWith('.xml')) {
-                    totalAdded += await parseXMLFile(file);
+                if (files[i].name.toLowerCase().endsWith('.xml')) {
+                    totalAdded += await parseXMLFile(files[i]);
                 }
             }
-            if (totalAdded === 0) { showAlert("No valid PLUs found.", "var(--danger)"); } 
-            else { persistData(); showAlert(`Synced ${totalAdded} items!`, "var(--success)"); }
+            if (totalAdded > 0) { persistData(); updateInventoryTable(); showAlert(`Synced ${totalAdded} items!`, "var(--success)"); }
         }
 
         async function parseXMLFile(file) {
@@ -882,30 +816,7 @@
             const a = document.createElement('a'); a.href = url; a.download = 'Modified_PLUs.xml'; a.click(); URL.revokeObjectURL(url);
             showAlert("Exported XML successfully.", "var(--success)");
         }
-
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                let req = indexedDB.open('StoreScanDB', 1);
-                req.onupgradeneeded = e => e.target.result.createObjectStore('settings');
-                req.onsuccess = e => resolve(e.target.result);
-                req.onerror = e => reject(e);
-            });
-        }
-        function getFromDB(db, key) {
-            return new Promise(resolve => {
-                let req = db.transaction('settings', 'readonly').objectStore('settings').get(key);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-            });
-        }
-        function saveToDB(db, key, val) {
-            return new Promise(resolve => {
-                let tx = db.transaction('settings', 'readwrite');
-                tx.objectStore('settings').put(val, key);
-                tx.oncomplete = () => resolve();
-            });
-        }
-      // --- Camera Scanner ---
+     // --- Camera Scanner ---
         async function openCamera(speedMode = false) {
             isSpeedScan = speedMode; lockedUPC = null;
             document.getElementById('qty-panel').style.display = 'none';
@@ -1148,4 +1059,4 @@
         }
     </script>
 </body>
-</html>
+</html>   
