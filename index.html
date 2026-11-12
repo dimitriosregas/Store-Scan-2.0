@@ -97,42 +97,6 @@
         
         #signature-canvas { background: white; width: 100%; height: 120px; border-radius: 8px; touch-action: none; cursor: crosshair; }
         #print-label-area { display: none; }
-
-        @media print {
-            @page { size: letter portrait; margin: 0.2in; }
-            body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools { display: none !important; }
-            .content, .view { display: block !important; padding: 0 !important; overflow: visible !important; }
-            #view-inventory, #view-vendor { display: block !important; }
-            table { width: 100% !important; border-collapse: collapse !important; }
-            th, td { border: 1px solid #000 !important; padding: 6px !important; color: black !important; }
-            th { background-color: #f3f4f6 !important; }
-            .result-card, .archive-card { background: white !important; border: 1px solid #000 !important; break-inside: avoid !important; color: black !important; }
-            
-            body.printing-modal #view-inventory, body.printing-modal #view-vendor { display: none !important; }
-            body.printing-modal .modal { position: static; display: block !important; background: white; padding: 0; }
-            body.printing-modal .modal-content { border: none; width: 100%; max-width: 100%; color: black; background: white; }
-            
-            body.printing-label .content { display: none !important; }
-            body.printing-label #print-label-area { 
-                display: flex !important; position: absolute; left: 0; top: 0; 
-                margin: 0; padding: 0; background: white; width: 100%; height: 100%; 
-                justify-content: flex-start; align-items: flex-start; 
-            }
-            .shelf-tag { border: 2px dashed #000 !important; background: white !important; color: black !important; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; box-sizing: border-box; page-break-inside: avoid !important; overflow: hidden; }
-            .shelf-tag-title { font-size: 14px; font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; width: 100%; text-align: center; margin: 0; }
-            .shelf-tag-price { font-size: 32px; font-weight: bold; margin: 2px 0; }
-            .shelf-tag-barcode { max-width: 100%; height: 40px; }
-            .tag-standard { width: 2.5in; height: 1.25in; }
-            .tag-large { width: 3in; height: 2in; }
-            .tag-large .shelf-tag-title { font-size: 18px; margin-top: 5px; }
-            .tag-large .shelf-tag-price { font-size: 48px; }
-            .tag-large .shelf-tag-barcode { height: 60px; margin-bottom: 5px; }
-            .tag-peg { width: 2in; height: 1.25in; }
-            .tag-peg .shelf-tag-title { font-size: 12px; }
-            .tag-peg .shelf-tag-price { font-size: 26px; }
-            .tag-peg .shelf-tag-barcode { height: 35px; }
-        }
     </style>
 </head>
 <body>
@@ -175,7 +139,6 @@
     </div>
     
     <div class="custom-alert" id="customAlert">Message</div>
-    
     <div class="content">
         <!-- SCANNER VIEW -->
         <div id="view-scanner" class="view active">
@@ -212,8 +175,15 @@
                 <button class="btn btn-green btn-full" id="sync-plu-btn" onclick="syncPLUs()" style="display:none; background:#8b5cf6;">🔄 Sync PLUs from Folder</button>
                 <button class="btn btn-yellow btn-full" onclick="document.getElementById('manual-plu-file-input').click()">📄 Import Single PLU XML File...</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
-                <button class="btn btn-full" style="background:#6b7280" onclick="printDualFormatPDF()">🖨️ Dual-Format Print / PDF</button>
-                <button class="btn btn-full" style="background:#8b5cf6" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
+                
+                <!-- Dedicated Print & Report Buttons -->
+                <div class="action-row" style="margin-top:10px;">
+                    <button class="btn btn-blue" style="font-size:14px; padding:12px;" onclick="printReport('thermal')">🖨️ 80mm Thermal</button>
+                    <button class="btn btn-blue" style="font-size:14px; padding:12px; background:#0284c7;" onclick="printReport('letter')">🖨️ Letter Report (8.5x11)</button>
+                </div>
+                <button class="btn btn-yellow btn-full" style="margin-top:5px;" onclick="openShelfLabelModal()">🏷️ Print Shelf Labels</button>
+
+                <button class="btn btn-full" style="background:#8b5cf6; margin-top:5px;" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
             </div>
             <div style="margin: 20px 0 10px 0; border-top: 1px solid #4b5563; padding-top: 15px;">
                 <h3 style="margin-bottom: 10px;">Modified / Scanned Items</h3>
@@ -231,6 +201,7 @@
                 </table>
             </div>
         </div>
+
         <!-- VENDOR CHECK-IN VIEW -->
         <div id="view-vendor" class="view">
             <div class="result-card" style="margin-top:0;">
@@ -282,8 +253,7 @@
                 </table>
             </div>
         </div>
-    </div> <!-- END OF CONTENT DIV -->
-
+    </div>
     <!-- ARCHIVES MODAL -->
     <div class="modal" id="archive-modal">
         <div class="modal-content" style="max-width: 500px;">
@@ -403,7 +373,44 @@
             </div>
         </div>
     </div>
-    <!-- Dedicated Manual Single XML File Import & Folder Fallback -->
+
+    <!-- PRINT SHELF LABEL MODAL -->
+    <div class="modal" id="print-label-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #60a5fa;">Print Shelf Label</h3>
+            <div class="form-group">
+                <label>Select Item UPC or Search</label>
+                <select id="label-item-select"></select>
+            </div>
+            <div class="form-group">
+                <label>Select Tag Size</label>
+                <select id="print-label-size" onchange="toggleCustomSizeInput()">
+                    <option value="tag-standard">Standard Shelf Tag (2.5" x 1.25")</option>
+                    <option value="tag-large">Large Shelf Tag (3" x 2")</option>
+                    <option value="tag-peg">Peg Hook Tag (2" x 1.25")</option>
+                    <option value="tag-custom">Custom Size (Inches)</option>
+                </select>
+            </div>
+            <div id="custom-size-box" style="display:none; display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;"><label>Width (in)</label><input type="number" step="0.1" id="custom-width" value="2.5"></div>
+                <div class="form-group" style="flex:1;"><label>Height (in)</label><input type="number" step="0.1" id="custom-height" value="1.25"></div>
+            </div>
+            <div class="action-row" style="margin-top: 15px;">
+                <button class="btn btn-green" onclick="executePrintLabel()">🖨️ Print Label</button>
+                <button class="btn" style="background:#6b7280" onclick="closeModal('print-label-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN PRINT / LABEL AREA -->
+    <div id="print-label-area">
+        <div class="shelf-tag" id="active-print-tag">
+            <div class="shelf-tag-title" id="tag-print-desc">Item Name</div>
+            <div class="shelf-tag-price" id="tag-print-price">$0.00</div>
+            <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
+        </div>
+    </div>
+   <!-- Dedicated Manual Single XML File Import & Folder Fallback -->
     <input type="file" id="manual-plu-file-input" accept=".xml,text/xml,application/xml" style="display:none" onchange="handleManualPLUImport(event)">
     <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
 
@@ -568,51 +575,18 @@
             setTimeout(initSignaturePad, 100);
         }
 
-async function openCamera(speedMode = false) {
-            isSpeedScan = speedMode; 
-            lockedUPC = null;
-            document.getElementById('qty-panel').style.display = 'none';
-
-            // Stop any lingering camera stream before requesting fresh permissions
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-
-            // Check Permissions API if supported by the browser
-            if (navigator.permissions && navigator.permissions.query) {
-                try {
-                    const permStatus = await navigator.permissions.query({ name: 'camera' });
-                    if (permStatus.state === 'denied') {
-                        showAlert("Camera access is blocked in your browser settings. Please check your browser address bar/settings to Allow Camera, then try again.", "var(--danger)");
-                        return;
-                    }
-                } catch (e) {
-                    // Safari/iOS does not support querying 'camera' via Permissions API; proceed directly to getUserMedia
-                }
-            }
-
-            document.getElementById('scanner-container').style.display = 'flex';
-            const video = document.getElementById('camera-feed');
-
+        async function processVendorDocument(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            document.getElementById('ocr-status').innerText = "Reading invoice via OCR...";
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: { ideal: "environment" } },
-                    audio: false 
-                });
-                video.srcObject = stream;
-                await video.play();
-                requestAnimationFrame(scanVideo);
-            } catch (err) {
-                closeCamera();
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    const retry = confirm("Camera permission was denied.\n\nIf your browser blocked it, check your browser address bar settings and set Camera to 'Allow'.\n\nTap [OK] to ask for camera permission again.");
-                    if (retry) {
-                        setTimeout(() => openCamera(speedMode), 300);
-                    }
-                } else {
-                    showAlert("Could not start camera: " + (err.message || "Check device permissions."), "var(--danger)");
-                }
+                const worker = await Tesseract.createWorker('eng');
+                await worker.recognize(file);
+                await worker.terminate();
+                document.getElementById('ocr-status').innerText = "OCR Complete!";
+                showAlert("Document read successfully!", "var(--success)");
+            } catch(e) {
+                document.getElementById('ocr-status').innerText = "OCR Error.";
             }
         }
 
@@ -741,7 +715,6 @@ async function openCamera(speedMode = false) {
             persistData(); updateInventoryTable(); closeModal('edit-modal'); showAlert("Item Saved!", "var(--success)");
         }
 
-        // --- Manual & Folder PLU Import Handlers ---
         async function handleManualPLUImport(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -849,17 +822,49 @@ async function openCamera(speedMode = false) {
             const a = document.createElement('a'); a.href = url; a.download = 'Modified_PLUs.xml'; a.click(); URL.revokeObjectURL(url);
             showAlert("Exported XML successfully.", "var(--success)");
         }
-     // --- Camera Scanner ---
+        // --- Camera Scanner with Permission Retry ---
         async function openCamera(speedMode = false) {
-            isSpeedScan = speedMode; lockedUPC = null;
+            isSpeedScan = speedMode; 
+            lockedUPC = null;
             document.getElementById('qty-panel').style.display = 'none';
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const permStatus = await navigator.permissions.query({ name: 'camera' });
+                    if (permStatus.state === 'denied') {
+                        showAlert("Camera access is blocked in your browser settings. Please Allow Camera, then try again.", "var(--danger)");
+                        return;
+                    }
+                } catch (e) {}
+            }
+
             document.getElementById('scanner-container').style.display = 'flex';
             const video = document.getElementById('camera-feed');
+
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { ideal: "environment" } },
+                    audio: false 
+                });
                 video.srcObject = stream;
+                await video.play();
                 requestAnimationFrame(scanVideo);
-            } catch (err) { showAlert("Camera permission denied.", "var(--danger)"); closeCamera(); }
+            } catch (err) {
+                closeCamera();
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    const retry = confirm("Camera permission was denied.\n\nCheck your browser address bar settings and set Camera to 'Allow'.\n\nTap [OK] to ask for camera permission again.");
+                    if (retry) {
+                        setTimeout(() => openCamera(speedMode), 300);
+                    }
+                } else {
+                    showAlert("Could not start camera: " + (err.message || "Check device permissions."), "var(--danger)");
+                }
+            }
         }
 
         function closeCamera() {
@@ -921,14 +926,12 @@ async function openCamera(speedMode = false) {
         }
         function finishSpeedScan() { if (lockedUPC) confirmSpeedQty(); closeCamera(); switchTab('inventory'); }
 
-        // --- DUAL-FORMAT PDF / THERMAL PRINT ENGINE ---
-        function printDualFormatPDF() {
+        // --- Dedicated Print Reports (80mm Thermal vs 8.5x11 Letter) ---
+        function printReport(type) {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) { window.print(); return; }
             
-            const choice = confirm("Press [OK] for 80mm Thermal Receipt\nPress [Cancel] for Legal Size Report (8.5\" x 14\")");
-            const targetFormat = choice ? [80, 240] : 'legal';
-            
+            const targetFormat = type === 'thermal' ? [80, 240] : 'letter';
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: targetFormat });
             let y = 14;
 
@@ -942,7 +945,7 @@ async function openCamera(speedMode = false) {
             y += 10;
 
             doc.setLineWidth(0.3);
-            doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+            doc.line(14, y, targetFormat === 'letter' ? 196 : 70, y);
             y += 5;
 
             let keys = Object.keys(modifiedItems);
@@ -952,26 +955,26 @@ async function openCamera(speedMode = false) {
                 doc.setFont("helvetica", "bold");
                 doc.text("UPC", 14, y);
                 doc.text("DESCRIPTION", 45, y);
-                doc.text("QTY", 135, y);
-                doc.text("PRICE", 160, y, { align: 'right' });
-                doc.text("COST", 185, y, { align: 'right' });
+                doc.text("QTY", 130, y);
+                doc.text("PRICE", 155, y, { align: 'right' });
+                doc.text("COST", 182, y, { align: 'right' });
                 y += 4;
-                doc.line(14, y, targetFormat === 'legal' ? 202 : 70, y);
+                doc.line(14, y, targetFormat === 'letter' ? 196 : 70, y);
                 y += 5;
 
                 doc.setFont("helvetica", "normal");
                 keys.forEach(upc => {
                     let item = modifiedItems[upc];
                     doc.text(String(upc), 14, y);
-                    doc.text(String(item.desc || '').substring(0, 24), 45, y);
-                    doc.text(String(item.qty || 0), 135, y);
-                    doc.text(`$${parseFloat(item.price || 0).toFixed(2)}`, 160, y, { align: 'right' });
-                    doc.text(`$${parseFloat(item.cost || 0).toFixed(2)}`, 185, y, { align: 'right' });
+                    doc.text(String(item.desc || '').substring(0, 22), 45, y);
+                    doc.text(String(item.qty || 0), 130, y);
+                    doc.text(`$${parseFloat(item.price || 0).toFixed(2)}`, 155, y, { align: 'right' });
+                    doc.text(`$${parseFloat(item.cost || 0).toFixed(2)}`, 182, y, { align: 'right' });
                     y += 6;
                 });
             }
 
-            if(driverSignatureDataURL && targetFormat === 'legal') {
+            if(driverSignatureDataURL && targetFormat === 'letter') {
                 y += 10;
                 doc.text("Driver Signature:", 14, y);
                 doc.addImage(driverSignatureDataURL, 'PNG', 14, y + 2, 50, 15);
@@ -981,20 +984,66 @@ async function openCamera(speedMode = false) {
             window.open(blobUrl, '_blank');
         }
 
-        // --- VENDOR CHECK-IN WORKFLOW ---
-        function startVendorScan() {
-            isVendorCheckInActive = true;
-            openCamera(false);
+        // --- Shelf Label Creator ---
+        function openShelfLabelModal() {
+            let select = document.getElementById('label-item-select');
+            let allItems = { ...inventory, ...modifiedItems };
+            let keys = Object.keys(allItems);
+            if (keys.length === 0) {
+                showAlert("No items in database to print labels for.", "var(--danger)");
+                return;
+            }
+            select.innerHTML = keys.map(upc => `<option value="${upc}">${upc} - ${allItems[upc].desc}</option>`).join('');
+            document.getElementById('print-label-modal').style.display = 'flex';
         }
 
-        function handleVendorScanResult(code) {
-            let upc = formatUPC14(code);
-            activeVendorUPC = upc;
-            let item = inventory[upc] || modifiedItems[upc];
+        function toggleCustomSizeInput() {
+            let sizeVal = document.getElementById('print-label-size').value;
+            document.getElementById('custom-size-box').style.display = (sizeVal === 'tag-custom') ? 'flex' : 'none';
+        }
 
+        function executePrintLabel() {
+            let upc = document.getElementById('label-item-select').value;
+            let allItems = { ...inventory, ...modifiedItems };
+            let item = allItems[upc];
+            if (!item) return;
+
+            document.getElementById('tag-print-desc').innerText = item.desc;
+            document.getElementById('tag-print-price').innerText = `$${parseFloat(item.price || 0).toFixed(2)}`;
+            
+            try {
+                JsBarcode("#tag-print-barcode", upc, { format: "UPC", displayValue: true, height: 40, margin: 2 });
+            } catch(e) {
+                try { JsBarcode("#tag-print-barcode", upc, { format: "CODE128", displayValue: true, height: 40, margin: 2 }); } catch(err) {}
+            }
+
+            let sizeChoice = document.getElementById('print-label-size').value;
+            let tagEl = document.getElementById('active-print-tag');
+            tagEl.className = "shelf-tag " + sizeChoice;
+
+            if (sizeChoice === 'tag-custom') {
+                let w = parseFloat(document.getElementById('custom-width').value) || 2.5;
+                let h = parseFloat(document.getElementById('custom-height').value) || 1.25;
+                tagEl.style.width = w + "in";
+                tagEl.style.height = h + "in";
+            } else {
+                tagEl.style.width = "";
+                tagEl.style.height = "";
+            }
+
+            closeModal('print-label-modal');
+            document.body.classList.add('printing-label');
+            window.print();
+            setTimeout(() => document.body.classList.remove('printing-label'), 1000);
+        }
+
+        // --- DSD Vendor Check-In Workflow ---
+        function startVendorScan() { isVendorCheckInActive = true; openCamera(false); }
+        function handleVendorScanResult(code) {
+            let upc = formatUPC14(code); activeVendorUPC = upc;
+            let item = inventory[upc] || modifiedItems[upc];
             if (!item) {
-                playBeep('danger');
-                closeCamera();
+                playBeep('danger'); closeCamera();
                 document.getElementById('modal-unknown-upc').innerText = `UPC: ${upc} (NOT FOUND)`;
                 document.getElementById('unknown-item-desc').value = '';
                 document.getElementById('unknown-item-cost').value = '';
@@ -1008,8 +1057,7 @@ async function openCamera(speedMode = false) {
                     let status = prompt("Note status (OK / Short / Damage / Return):", "OK") || "OK";
                     recordVendorItem(upc, item.desc, parseFloat(item.price), parseFloat(item.cost || 0), parseInt(boxQty) || 1, status, false);
                 }
-                closeCamera();
-                isVendorCheckInActive = false;
+                closeCamera(); isVendorCheckInActive = false;
             }
         }
 
@@ -1018,14 +1066,9 @@ async function openCamera(speedMode = false) {
             let cost = parseFloat(document.getElementById('unknown-item-cost').value) || 0;
             let msrp = parseFloat(document.getElementById('unknown-item-msrp').value) || 0;
             let retail = parseFloat(document.getElementById('unknown-item-retail').value) || 0;
-
             if (!desc) { showAlert("Please enter a description", "var(--danger)"); return; }
-
             let newItem = { desc, cost: cost.toFixed(2), msrp: msrp.toFixed(2), price: retail.toFixed(2), oldPrice: retail.toFixed(2), qty: 0, status: 'NEW' };
-            inventory[activeVendorUPC] = newItem;
-            modifiedItems[activeVendorUPC] = newItem;
-            persistData();
-
+            inventory[activeVendorUPC] = newItem; modifiedItems[activeVendorUPC] = newItem; persistData();
             let boxQty = parseInt(prompt("Enter quantity received in box:", "1")) || 1;
             let status = prompt("Note status (OK / Short / Damage / Return):", "OK") || "OK";
             recordVendorItem(activeVendorUPC, desc, retail, cost, boxQty, status, true);
@@ -1044,52 +1087,30 @@ async function openCamera(speedMode = false) {
 
         function recordVendorItem(upc, desc, price, cost, boxQty, status, isNew) {
             vendorSessionItems[upc] = { desc, price, cost, qty: boxQty, status, isNew };
-            if (inventory[upc]) {
-                inventory[upc].qty = (parseInt(inventory[upc].qty) || 0) + boxQty;
-                modifiedItems[upc] = inventory[upc];
-            }
-            persistData();
-            updateVendorCheckInTable();
-            showAlert(`Logged ${desc} (+${boxQty})`, "var(--success)");
+            if (inventory[upc]) { inventory[upc].qty = (parseInt(inventory[upc].qty) || 0) + boxQty; modifiedItems[upc] = inventory[upc]; }
+            persistData(); updateVendorCheckInTable(); showAlert(`Logged ${desc} (+${boxQty})`, "var(--success)");
         }
 
         function updateVendorCheckInTable() {
             const tbody = document.getElementById('vendor-checkin-list');
             let keys = Object.keys(vendorSessionItems);
-            if (keys.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>`;
-                return;
-            }
+            if (keys.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--gray);">No items checked in yet.</td></tr>`; return; }
             let html = "";
             keys.forEach(upc => {
                 let item = vendorSessionItems[upc];
                 let statColor = item.status !== 'OK' ? 'color: var(--danger); font-weight: bold;' : 'color: white;';
-                html += `
-                    <tr style="${statColor}">
-                        <td>${upc}<br><small style="color:var(--gray);">${item.desc}</small></td>
-                        <td>${item.qty}</td>
-                        <td>${item.status}</td>
-                        <td><button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendorItem('${upc}')">X</button></td>
-                    </tr>
-                `;
+                html += `<tr style="${statColor}"><td>${upc}<br><small style="color:var(--gray);">${item.desc}</small></td><td>${item.qty}</td><td>${item.status}</td><td><button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="removeVendorItem('${upc}')">X</button></td></tr>`;
             });
             tbody.innerHTML = html;
         }
 
-        function removeVendorItem(upc) {
-            delete vendorSessionItems[upc];
-            updateVendorCheckInTable();
-        }
-
+        function removeVendorItem(upc) { delete vendorSessionItems[upc]; updateVendorCheckInTable(); }
         function finishVendorCheckIn() {
-            if (Object.keys(vendorSessionItems).length === 0) {
-                showAlert("No items in vendor check-in session.", "var(--danger)");
-                return;
-            }
+            if (Object.keys(vendorSessionItems).length === 0) { showAlert("No items in vendor check-in session.", "var(--danger)"); return; }
             let vendorName = document.getElementById('vendor-select').value;
-            alert(`Vendor Check-In Complete for ${vendorName}! Generating DSD report...`);
-            printDualFormatPDF();
+            alert(`Vendor Check-In Complete for ${vendorName}!`);
+            printReport('letter');
         }
     </script>
 </body>
-</html>   
+</html>
