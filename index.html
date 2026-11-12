@@ -97,6 +97,30 @@
         
         #signature-canvas { background: white; width: 100%; height: 120px; border-radius: 8px; touch-action: none; cursor: crosshair; }
         #print-label-area { display: none; }
+
+        @media print {
+            @page { size: letter portrait; margin: 0.2in; }
+            body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header, .tabs, .numpad, .action-row, .btn, #scanner-container, .input-display, .modal, #inventory-tools { display: none !important; }
+            .content, .view { display: block !important; padding: 0 !important; overflow: visible !important; }
+            #view-inventory, #view-vendor { display: block !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #000 !important; padding: 6px !important; color: black !important; }
+            th { background-color: #f3f4f6 !important; }
+            .result-card, .archive-card { background: white !important; border: 1px solid #000 !important; break-inside: avoid !important; color: black !important; }
+            
+            body.printing-label * { visibility: hidden !important; }
+            body.printing-label #print-label-area, body.printing-label #print-label-area * { visibility: visible !important; }
+            body.printing-label #print-label-area { 
+                display: flex !important; position: fixed !important; left: 0 !important; top: 0 !important; 
+                width: 100% !important; height: 100% !important; background: white !important; 
+                justify-content: center !important; align-items: center !important; 
+            }
+            .shelf-tag { border: 2px dashed #000 !important; background: white !important; color: black !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; align-items: center !important; padding: 5px !important; box-sizing: border-box !important; }
+            .tag-standard { width: 2.5in !important; height: 1.25in !important; }
+            .tag-large { width: 3in !important; height: 2in !important; }
+            .tag-peg { width: 2in !important; height: 1.25in !important; }
+        }
     </style>
 </head>
 <body>
@@ -139,6 +163,7 @@
     </div>
     
     <div class="custom-alert" id="customAlert">Message</div>
+    
     <div class="content">
         <!-- SCANNER VIEW -->
         <div id="view-scanner" class="view active">
@@ -176,13 +201,11 @@
                 <button class="btn btn-yellow btn-full" onclick="document.getElementById('manual-plu-file-input').click()">📄 Import Single PLU XML File...</button>
                 <button class="btn btn-green btn-full" onclick="exportXML()">💾 Export to XML</button>
                 
-                <!-- Dedicated Print & Report Buttons -->
                 <div class="action-row" style="margin-top:10px;">
                     <button class="btn btn-blue" style="font-size:14px; padding:12px;" onclick="printReport('thermal')">🖨️ 80mm Thermal</button>
                     <button class="btn btn-blue" style="font-size:14px; padding:12px; background:#0284c7;" onclick="printReport('letter')">🖨️ Letter Report (8.5x11)</button>
                 </div>
                 <button class="btn btn-yellow btn-full" style="margin-top:5px;" onclick="openShelfLabelModal()">🏷️ Print Shelf Labels</button>
-
                 <button class="btn btn-full" style="background:#8b5cf6; margin-top:5px;" onclick="forceUpdateApp()">🔄 Check for App Updates</button>
             </div>
             <div style="margin: 20px 0 10px 0; border-top: 1px solid #4b5563; padding-top: 15px;">
@@ -254,7 +277,8 @@
             </div>
         </div>
     </div>
-    <!-- ARCHIVES MODAL -->
+
+    <!-- MODALS -->
     <div class="modal" id="archive-modal">
         <div class="modal-content" style="max-width: 500px;">
             <h3 style="margin-bottom: 15px; color: var(--success);" id="archive-modal-title">Past Archives</h3>
@@ -265,7 +289,6 @@
         </div>
     </div>
 
-    <!-- VENDOR MANAGER MODAL -->
     <div class="modal" id="vendor-manager-modal">
         <div class="modal-content">
             <h3 style="margin-bottom:15px; color:#60a5fa;">Manage Vendors</h3>
@@ -280,11 +303,9 @@
         </div>
     </div>
 
-    <!-- DRIVER SIGNATURE MODAL -->
     <div class="modal" id="signature-modal">
         <div class="modal-content">
             <h3 style="margin-bottom:10px; color:#60a5fa;">Delivery Driver Signature</h3>
-            <p style="font-size:13px; color:var(--gray); margin-bottom:10px;">Please have the driver sign below to confirm delivery counts and condition.</p>
             <div style="border:1px solid #4b5563; border-radius:8px; overflow:hidden; margin-bottom:10px;">
                 <canvas id="signature-canvas"></canvas>
             </div>
@@ -296,43 +317,80 @@
         </div>
     </div>
 
-    <!-- QR CODE TRANSFER MODAL -->
     <div class="modal" id="qrcode-modal">
         <div class="modal-content" style="text-align:center;">
             <h3 style="margin-bottom:10px; color:#60a5fa;">DSD Report QR Code</h3>
-            <p style="font-size:13px; color:var(--gray); margin-bottom:15px;">Scan this QR code with another mobile device to instantly transfer or view the check-in summary.</p>
             <div id="qrcode-container" style="display:inline-block; background:white; padding:15px; border-radius:8px; margin-bottom:15px;"></div>
             <button class="btn btn-full" style="background:#6b7280;" onclick="closeModal('qrcode-modal')">Close</button>
         </div>
     </div>
 
-    <!-- UNKNOWN VENDOR ITEM MODAL -->
     <div class="modal" id="vendor-unknown-modal">
         <div class="modal-content" style="border: 2px solid var(--danger);">
             <h3 style="color: var(--danger); margin-bottom: 5px;">⚠️ Item Not in Database</h3>
             <p id="modal-unknown-upc" style="font-family: monospace; color: var(--gray); margin-bottom: 12px;"></p>
-            
-            <div class="form-group">
-                <label>Item Description</label>
-                <input type="text" id="unknown-item-desc" placeholder="e.g. NEW ENERGY DRINK 16OZ">
-            </div>
-            <div class="form-group">
-                <label>Wholesale Cost ($)</label>
-                <input type="number" step="0.01" id="unknown-item-cost" placeholder="0.00" oninput="autoCalculateRetail()">
-            </div>
-            <div class="form-group">
-                <label>MSRP ($)</label>
-                <input type="number" step="0.01" id="unknown-item-msrp" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label>Current Selling Price ($)</label>
-                <input type="number" step="0.01" id="unknown-item-retail" placeholder="0.00">
-            </div>
-            
+            <div class="form-group"><label>Item Description</label><input type="text" id="unknown-item-desc"></div>
+            <div class="form-group"><label>Wholesale Cost ($)</label><input type="number" step="0.01" id="unknown-item-cost" oninput="autoCalculateRetail()"></div>
+            <div class="form-group"><label>MSRP ($)</label><input type="number" step="0.01" id="unknown-item-msrp"></div>
+            <div class="form-group"><label>Current Selling Price ($)</label><input type="number" step="0.01" id="unknown-item-retail"></div>
             <div class="action-row" style="margin-top: 15px;">
                 <button class="btn btn-green" onclick="saveUnknownVendorItem()">✅ Save & Add Qty</button>
                 <button class="btn" style="background:#d97706;" onclick="applyCostMarkupPrompt()">🏷️ Cost Lookup</button>
                 <button class="btn" style="background:#6b7280; grid-column:span 2;" onclick="closeModal('vendor-unknown-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <h3 id="modal-title" style="margin-bottom: 15px;">Edit Item</h3>
+            <div class="form-group"><label>UPC</label><input type="text" id="edit-upc"></div>
+            <div class="form-group"><label>Description</label><input type="text" id="edit-desc"></div>
+            <div class="form-group"><label>Wholesale Cost ($)</label><input type="number" step="0.01" id="edit-cost"></div>
+            <div class="form-group"><label>MSRP ($)</label><input type="number" step="0.01" id="edit-msrp"></div>
+            <div class="form-group"><label>Selling Price ($)</label><input type="number" step="0.01" id="edit-price"></div>
+            <div class="form-group"><label>Inventory Qty</label><input type="number" id="edit-qty" value="0"></div>
+            <div class="action-row" style="margin-top: 15px;">
+                <button class="btn btn-green" onclick="saveItem()">Save</button>
+                <button class="btn" style="background:#6b7280" onclick="closeModal('edit-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT SHELF LABEL MODAL -->
+    <div class="modal" id="print-label-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #60a5fa;">Print Shelf Label</h3>
+            <div class="form-group">
+                <label>Scan or Type UPC / Item</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="label-upc-input" placeholder="Scan or enter UPC..." style="flex:1;">
+                    <button class="btn btn-green" style="padding:10px; font-size:14px;" onclick="startLabelScan()">📷 Scan</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Select Printer / Format Type</label>
+                <select id="print-format-select">
+                    <option value="thermal">Thermal Label Printer (Default)</option>
+                    <option value="letter">Letter Sheet (8.5" x 11")</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Select Tag Size</label>
+                <select id="print-label-size" onchange="toggleCustomSizeInput()">
+                    <option value="tag-standard">Standard Shelf Tag (2.5" x 1.25")</option>
+                    <option value="tag-large">Large Shelf Tag (3" x 2")</option>
+                    <option value="tag-peg">Peg Hook Tag (2" x 1.25")</option>
+                    <option value="tag-custom">Custom Size (Inches)</option>
+                </select>
+            </div>
+            <div id="custom-size-box" style="display:none; gap:10px;">
+                <div class="form-group" style="flex:1;"><label>Width (in)</label><input type="number" step="0.1" id="custom-width" value="2.5"></div>
+                <div class="form-group" style="flex:1;"><label>Height (in)</label><input type="number" step="0.1" id="custom-height" value="1.25"></div>
+            </div>
+            <div class="action-row" style="margin-top: 15px;">
+                <button class="btn btn-green" onclick="executePrintLabel()">🖨️ Print Label</button>
+                <button class="btn" style="background:#6b7280" onclick="closeModal('print-label-modal')">Cancel</button>
             </div>
         </div>
     </div>
@@ -357,67 +415,7 @@
         <button class="close-scanner" onclick="closeCamera()">Close Scanner</button>
     </div>
 
-    <!-- EDIT / ADD ITEM MODAL -->
-    <div class="modal" id="edit-modal">
-        <div class="modal-content">
-            <h3 id="modal-title" style="margin-bottom: 15px;">Edit Item</h3>
-            <div class="form-group"><label>UPC (14 Digits GTIN)</label><input type="text" id="edit-upc"></div>
-            <div class="form-group"><label>Description</label><input type="text" id="edit-desc"></div>
-            <div class="form-group"><label>Wholesale Cost ($)</label><input type="number" step="0.01" id="edit-cost" placeholder="0.00"></div>
-            <div class="form-group"><label>MSRP ($)</label><input type="number" step="0.01" id="edit-msrp" placeholder="0.00"></div>
-            <div class="form-group"><label>Current Selling Price ($)</label><input type="number" step="0.01" id="edit-price" placeholder="0.00"></div>
-            <div class="form-group"><label>Inventory Qty</label><input type="number" id="edit-qty" value="0"></div>
-            <div class="action-row" style="margin-top: 15px;">
-                <button class="btn btn-green" onclick="saveItem()">Save</button>
-                <button class="btn" style="background:#6b7280" onclick="closeModal('edit-modal')">Cancel</button>
-            </div>
-        </div>
-    </div>
-
- <!-- PRINT SHELF LABEL MODAL -->
-    <div class="modal" id="print-label-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #60a5fa;">Print Shelf Label</h3>
-            
-            <div class="form-group">
-                <label>Scan or Type UPC / Item</label>
-                <div style="display:flex; gap:8px;">
-                    <input type="text" id="label-upc-input" placeholder="Scan or enter UPC..." style="flex:1;">
-                    <button class="btn btn-green" style="padding:10px; font-size:14px;" onclick="startLabelScan()">📷 Scan</button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Select Printer / Format Type</label>
-                <select id="print-format-select">
-                    <option value="thermal">Thermal Label Printer (Default)</option>
-                    <option value="letter">Letter Sheet (8.5" x 11")</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Select Tag Size</label>
-                <select id="print-label-size" onchange="toggleCustomSizeInput()">
-                    <option value="tag-standard">Standard Shelf Tag (2.5" x 1.25")</option>
-                    <option value="tag-large">Large Shelf Tag (3" x 2")</option>
-                    <option value="tag-peg">Peg Hook Tag (2" x 1.25")</option>
-                    <option value="tag-custom">Custom Size (Inches)</option>
-                </select>
-            </div>
-            
-            <div id="custom-size-box" style="display:none; gap:10px;">
-                <div class="form-group" style="flex:1;"><label>Width (in)</label><input type="number" step="0.1" id="custom-width" value="2.5"></div>
-                <div class="form-group" style="flex:1;"><label>Height (in)</label><input type="number" step="0.1" id="custom-height" value="1.25"></div>
-            </div>
-            
-            <div class="action-row" style="margin-top: 15px;">
-                <button class="btn btn-green" onclick="executePrintLabel()">🖨️ Print Label</button>
-                <button class="btn" style="background:#6b7280" onclick="closeModal('print-label-modal')">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- HIDDEN PRINT / LABEL AREA -->
+    <!-- HIDDEN LABEL PRINT AREA -->
     <div id="print-label-area">
         <div class="shelf-tag" id="active-print-tag">
             <div class="shelf-tag-title" id="tag-print-desc">Item Name</div>
@@ -425,7 +423,8 @@
             <svg class="shelf-tag-barcode" id="tag-print-barcode"></svg>
         </div>
     </div>
-   <!-- Dedicated Manual Single XML File Import & Folder Fallback -->
+
+    <!-- FILE INPUTS -->
     <input type="file" id="manual-plu-file-input" accept=".xml,text/xml,application/xml" style="display:none" onchange="handleManualPLUImport(event)">
     <input type="file" id="xml-upload" accept="*/*" style="display:none" onchange="handleXMLUpload(event)" multiple webkitdirectory directory>
 
@@ -439,6 +438,7 @@
         let barcodeDetector = null;
         let zxingReader = null;
         let isSpeedScan = false;
+        let isLabelScanActive = false;
         let lockedUPC = null;
         let lockedQty = 0;
         let pluDirectoryHandle = null;
@@ -837,7 +837,7 @@
             const a = document.createElement('a'); a.href = url; a.download = 'Modified_PLUs.xml'; a.click(); URL.revokeObjectURL(url);
             showAlert("Exported XML successfully.", "var(--success)");
         }
-        // --- Camera Scanner with Permission Retry ---
+
         async function openCamera(speedMode = false) {
             isSpeedScan = speedMode; 
             lockedUPC = null;
@@ -886,6 +886,7 @@
             if (stream) stream.getTracks().forEach(track => track.stop());
             document.getElementById('scanner-container').style.display = 'none';
             isSpeedScan = false;
+            isLabelScanActive = false;
         }
 
         async function scanVideo() {
@@ -902,6 +903,7 @@
         }
 
         function handleScanResult(code) {
+            if (isLabelScanActive) { handleLabelScanResult(code); return; }
             if (isVendorCheckInActive) { handleVendorScanResult(code); return; }
             if (isSpeedScan) {
                 let matchedKey = fuzzyMatchUPC(code);
@@ -941,7 +943,6 @@
         }
         function finishSpeedScan() { if (lockedUPC) confirmSpeedQty(); closeCamera(); switchTab('inventory'); }
 
-        // --- Dedicated Print Reports (80mm Thermal vs 8.5x11 Letter) ---
         function printReport(type) {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) { window.print(); return; }
@@ -999,16 +1000,22 @@
             window.open(blobUrl, '_blank');
         }
 
-        // --- Shelf Label Creator ---
         function openShelfLabelModal() {
-            let select = document.getElementById('label-item-select');
-            let allItems = { ...inventory, ...modifiedItems };
-            let keys = Object.keys(allItems);
-            if (keys.length === 0) {
-                showAlert("No items in database to print labels for.", "var(--danger)");
-                return;
-            }
-            select.innerHTML = keys.map(upc => `<option value="${upc}">${upc} - ${allItems[upc].desc}</option>`).join('');
+            document.getElementById('label-upc-input').value = "";
+            document.getElementById('print-label-modal').style.display = 'flex';
+        }
+
+        function startLabelScan() {
+            isLabelScanActive = true;
+            closeModal('print-label-modal');
+            openCamera(false);
+        }
+
+        function handleLabelScanResult(code) {
+            let upc = formatUPC14(code);
+            document.getElementById('label-upc-input').value = upc;
+            isLabelScanActive = false;
+            closeCamera();
             document.getElementById('print-label-modal').style.display = 'flex';
         }
 
@@ -1018,10 +1025,19 @@
         }
 
         function executePrintLabel() {
-            let upc = document.getElementById('label-item-select').value;
+            let rawInput = document.getElementById('label-upc-input').value.trim();
+            if (!rawInput) {
+                showAlert("Please enter or scan a UPC", "var(--danger)");
+                return;
+            }
+            let upc = formatUPC14(rawInput);
             let allItems = { ...inventory, ...modifiedItems };
-            let item = allItems[upc];
-            if (!item) return;
+            let item = allItems[upc] || allItems[rawInput];
+
+            if (!item) {
+                showAlert("Item not found in database. Add it first.", "var(--danger)");
+                return;
+            }
 
             document.getElementById('tag-print-desc').innerText = item.desc;
             document.getElementById('tag-print-price').innerText = `$${parseFloat(item.price || 0).toFixed(2)}`;
@@ -1041,9 +1057,6 @@
                 let h = parseFloat(document.getElementById('custom-height').value) || 1.25;
                 tagEl.style.width = w + "in";
                 tagEl.style.height = h + "in";
-            } else {
-                tagEl.style.width = "";
-                tagEl.style.height = "";
             }
 
             closeModal('print-label-modal');
@@ -1052,7 +1065,6 @@
             setTimeout(() => document.body.classList.remove('printing-label'), 1000);
         }
 
-        // --- DSD Vendor Check-In Workflow ---
         function startVendorScan() { isVendorCheckInActive = true; openCamera(false); }
         function handleVendorScanResult(code) {
             let upc = formatUPC14(code); activeVendorUPC = upc;
