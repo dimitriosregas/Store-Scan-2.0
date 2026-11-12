@@ -568,18 +568,51 @@
             setTimeout(initSignaturePad, 100);
         }
 
-        async function processVendorDocument(event) {
-            const file = event.target.files[0];
-            if(!file) return;
-            document.getElementById('ocr-status').innerText = "Reading invoice via OCR...";
+async function openCamera(speedMode = false) {
+            isSpeedScan = speedMode; 
+            lockedUPC = null;
+            document.getElementById('qty-panel').style.display = 'none';
+
+            // Stop any lingering camera stream before requesting fresh permissions
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            // Check Permissions API if supported by the browser
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const permStatus = await navigator.permissions.query({ name: 'camera' });
+                    if (permStatus.state === 'denied') {
+                        showAlert("Camera access is blocked in your browser settings. Please check your browser address bar/settings to Allow Camera, then try again.", "var(--danger)");
+                        return;
+                    }
+                } catch (e) {
+                    // Safari/iOS does not support querying 'camera' via Permissions API; proceed directly to getUserMedia
+                }
+            }
+
+            document.getElementById('scanner-container').style.display = 'flex';
+            const video = document.getElementById('camera-feed');
+
             try {
-                const worker = await Tesseract.createWorker('eng');
-                await worker.recognize(file);
-                await worker.terminate();
-                document.getElementById('ocr-status').innerText = "OCR Complete!";
-                showAlert("Document read successfully!", "var(--success)");
-            } catch(e) {
-                document.getElementById('ocr-status').innerText = "OCR Error.";
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { ideal: "environment" } },
+                    audio: false 
+                });
+                video.srcObject = stream;
+                await video.play();
+                requestAnimationFrame(scanVideo);
+            } catch (err) {
+                closeCamera();
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    const retry = confirm("Camera permission was denied.\n\nIf your browser blocked it, check your browser address bar settings and set Camera to 'Allow'.\n\nTap [OK] to ask for camera permission again.");
+                    if (retry) {
+                        setTimeout(() => openCamera(speedMode), 300);
+                    }
+                } else {
+                    showAlert("Could not start camera: " + (err.message || "Check device permissions."), "var(--danger)");
+                }
             }
         }
 
