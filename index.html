@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Store Scan 2.0 - DSD & Thermal Print</title>
-    
+   <title>Store Scan 2.0 - DSD & Thermal Print</title> 
     <!-- Smartphone App Icon & PWA Settings -->
     <meta name="apple-mobile-web-app-title" content="Store Scan">
     <meta name="application-name" content="Store Scan">
@@ -1141,3 +1141,211 @@
     </script>
 </body>
 </html>
+<script>
+/* ==========================================================================
+   STORE SCAN 2.0 - DSD GEAR EDITION ICON GENERATOR
+   ========================================================================== */
+function generateStoreScan2Icon() {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Weathered Dark Steel/Industrial Background
+    const bgGrad = ctx.createLinearGradient(0, 0, 512, 512);
+    bgGrad.addColorStop(0, '#111827'); 
+    bgGrad.addColorStop(0.5, '#0f172a'); 
+    bgGrad.addColorStop(1, '#020617'); 
+    ctx.fillStyle = bgGrad;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 512, 512, 112);
+    ctx.fill();
+
+    // Speckled iron textures
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    for (let i = 0; i < 60; i++) {
+      ctx.fillRect(Math.random()*512, Math.random()*512, 3, 3);
+    }
+
+    // 2. Rusty Metal Frame Border (Golden-Orange Oxide)
+    const borderGrad = ctx.createLinearGradient(0, 0, 512, 512);
+    borderGrad.addColorStop(0, '#7c2d12'); // Deep rust
+    borderGrad.addColorStop(0.3, '#d97706'); // Iron gold
+    borderGrad.addColorStop(0.7, '#ea580c'); // Oxidized orange
+    borderGrad.addColorStop(1, '#431407'); // Aged shadows
+    ctx.strokeStyle = borderGrad;
+    ctx.lineWidth = 14;
+    ctx.stroke();
+
+    // 3. Stamped "2.0" Metal Crest Plate (Top Center)
+    ctx.save();
+    ctx.translate(256, 35);
+    ctx.fillStyle = '#475569';
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(-65, -15, 130, 45, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    // Plate screws
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath(); ctx.arc(-55, -5, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(55, -5, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-55, 20, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(55, 20, 3, 0, Math.PI*2); ctx.fill();
+
+    // Stenciled "2.0" text
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 24px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('2.0', 0, 18);
+    ctx.restore();
+
+    // 4. Large Heavy Industrial Gear
+    ctx.save();
+    ctx.translate(256, 235);
+    ctx.fillStyle = '#7c2d12'; // Base rusty color
+    
+    // Rotating cog teeth using multi-points
+    for (let i = 0; i < 16; i++) {
+      ctx.rotate(Math.PI / 8);
+      ctx.fillRect(-15, -135, 30, 40);
+    }
+    // Main circular body
+    ctx.beginPath();
+    ctx.arc(0, 0, 115, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gear hub and metallic rim highlights
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 100, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+
+    // 5. Hardened Freight Crate box
+    ctx.save();
+    ctx.translate(256, 235);
+
+    // Box shadows
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 10;
+
+    // Top isometric face
+    ctx.fillStyle = '#451a03'; // Rusty industrial brown
+    ctx.beginPath();
+    ctx.moveTo(0, -70);
+    ctx.lineTo(95, -25);
+    ctx.lineTo(0, 20);
+    ctx.lineTo(-95, -25);
+    ctx.closePath();
+    ctx.fill();
+
+    // Right face
+    ctx.fillStyle = '#291405';
+    ctx.beginPath();
+    ctx.moveTo(0, 20);
+    ctx.lineTo(95, -25);
+    ctx.lineTo(95, 55);
+    ctx.lineTo(0, 100);
+    ctx.closePath();
+    ctx.fill();
+
+    // Left face
+    ctx.fillStyle = '#1e0a00';
+    ctx.beginPath();
+    ctx.moveTo(-95, -25);
+    ctx.lineTo(0, 20);
+    ctx.lineTo(0, 100);
+    ctx.lineTo(-95, 55);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+
+    // Panel support structural lines on sides
+    ctx.strokeStyle = '#7c2d12';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-95, -25); ctx.lineTo(0, 100);
+    ctx.moveTo(95, -25); ctx.lineTo(0, 100);
+    ctx.stroke();
+
+    ctx.restore();
+
+    // 6. Active Scanner Laser Mesh (Target Target, Glare Overlay)
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 18;
+
+    // Curved scanning sweep mesh
+    ctx.beginPath();
+    ctx.arc(256, 235, 80, -Math.PI, 0);
+    ctx.stroke();
+
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(170, 235);
+    ctx.lineTo(342, 235);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(256, 235, 50, -Math.PI, 0);
+    ctx.stroke();
+
+    // Laser Tracking Crosshairs
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(256, 135); ctx.lineTo(256, 175); // Top tracker
+    ctx.moveTo(156, 235); ctx.lineTo(196, 235); // Left tracker
+    ctx.moveTo(316, 235); ctx.lineTo(356, 235); // Right tracker
+    ctx.stroke();
+
+    // Radar Scanning Corner Pins
+    const drawPin = (px, py, dx, dy) => {
+      ctx.beginPath();
+      ctx.moveTo(px, py + dy*18); ctx.lineTo(px, py); ctx.lineTo(px + dx*18, py);
+      ctx.stroke();
+    };
+    drawPin(140, 140, 1, 1);
+    drawPin(372, 140, -1, 1);
+    drawPin(140, 315, 1, -1);
+    drawPin(372, 315, -1, -1);
+
+    ctx.shadowBlur = 0; // Clear target shadow
+
+    // 7. Gritty Gold Metallic "SCAN 2.0" Branding
+    ctx.fillStyle = '#fde047'; // Aged yellow-gold
+    ctx.font = '900 60px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 6;
+    ctx.fillText('SCAN 2.0', 256, 440);
+
+    // Rendered PNG Data URI
+    const iconDataUrl = canvas.toDataURL('image/png');
+
+    // Override active icons
+    document.querySelectorAll("link[rel*='icon']").forEach(link => {
+      link.type = 'image/png';
+      link.href = iconDataUrl;
+    });
+    const touchIcon = document.getElementById('app-touch-icon');
+    if (touchIcon) touchIcon.href = iconDataUrl;
+  } catch (e) {
+    console.error('Store Scan 2.0 Icon load failure:', e);
+  }
+}
+
+// Fire generation
+window.addEventListener('DOMContentLoaded', () => {
+  generateStoreScan2Icon();
+});
+</script>
